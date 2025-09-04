@@ -4,21 +4,30 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateSystemSettingsTable extends Migration
+return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         Schema::create('system_settings', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique();
             $table->text('value')->nullable();
-            $table->string('type', 50)->default('text'); // text, number, boolean, json
+            $table->string('type')->default('text'); // text, boolean, number, json
+            $table->string('group')->default('general'); // general, store, printer, notification
+            $table->string('label');
             $table->text('description')->nullable();
+            $table->boolean('is_public')->default(false);
             $table->timestamps();
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
         Schema::dropIfExists('system_settings');
     }

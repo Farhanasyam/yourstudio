@@ -6,78 +6,45 @@
         @include('components.alert')
     </div>
     <div class="container-fluid py-4">
-        <!-- Statistics Row -->
+        <!-- Barcode Summary -->
         <div class="row mb-4">
-            <div class="col-lg-3 col-md-6">
+            <div class="col-12">
                 <div class="card">
-                    <div class="card-body p-3">
-                        <div class="row">
-                            <div class="col-8">
-                                <div class="numbers">
-                                    <p class="text-sm mb-0 text-capitalize font-weight-bold">Total Items</p>
-                                    <h5 class="font-weight-bolder mb-0" id="totalItems">-</h5>
-                                </div>
+                    <div class="card-header p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-barcode text-primary me-2"></i>
+                                <h6 class="mb-0">BARCODE SUMMARY</h6>
                             </div>
-                            <div class="col-4 text-end">
-                                <div class="icon icon-shape bg-gradient-primary shadow text-center border-radius-md">
-                                    <i class="ni ni-box-2 text-lg opacity-10" aria-hidden="true"></i>
-                                </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-gradient-primary" id="lastUpdate">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Last Update: <span id="updateTime">Just Now</span>
+                                </span>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="card">
-                    <div class="card-body p-3">
-                        <div class="row">
-                            <div class="col-8">
+                    <div class="card-body px-3 py-0">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 text-center py-4 border-end">
                                 <div class="numbers">
-                                    <p class="text-sm mb-0 text-capitalize font-weight-bold">With Barcodes</p>
-                                    <h5 class="font-weight-bolder mb-0" id="itemsWithBarcodes">-</h5>
+                                    <p class="text-sm mb-2 text-uppercase font-weight-bold text-primary">Total Items</p>
+                                    <h2 class="font-weight-bolder mb-0" id="totalItems">-</h2>
+                                    <span class="text-sm text-muted">in inventory</span>
                                 </div>
                             </div>
-                            <div class="col-4 text-end">
-                                <div class="icon icon-shape bg-gradient-success shadow text-center border-radius-md">
-                                    <i class="ni ni-tag text-lg opacity-10" aria-hidden="true"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="card">
-                    <div class="card-body p-3">
-                        <div class="row">
-                            <div class="col-8">
+                            <div class="col-md-4 text-center py-4 border-end">
                                 <div class="numbers">
-                                    <p class="text-sm mb-0 text-capitalize font-weight-bold">Without Barcodes</p>
-                                    <h5 class="font-weight-bolder mb-0" id="itemsWithoutBarcodes">-</h5>
+                                    <p class="text-sm mb-2 text-uppercase font-weight-bold text-success">With Barcode</p>
+                                    <h2 class="font-weight-bolder mb-0" id="itemsWithBarcodes">-</h2>
+                                    <span class="text-sm text-success">Ready to Use</span>
                                 </div>
                             </div>
-                            <div class="col-4 text-end">
-                                <div class="icon icon-shape bg-gradient-warning shadow text-center border-radius-md">
-                                    <i class="ni ni-fat-remove text-lg opacity-10" aria-hidden="true"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6">
-                <div class="card">
-                    <div class="card-body p-3">
-                        <div class="row">
-                            <div class="col-8">
+                            <div class="col-md-4 text-center py-4">
                                 <div class="numbers">
-                                    <p class="text-sm mb-0 text-capitalize font-weight-bold">Completion</p>
-                                    <h5 class="font-weight-bolder mb-0" id="completionPercentage">-%</h5>
-                                </div>
-                            </div>
-                            <div class="col-4 text-end">
-                                <div class="icon icon-shape bg-gradient-info shadow text-center border-radius-md">
-                                    <i class="ni ni-chart-pie-35 text-lg opacity-10" aria-hidden="true"></i>
+                                    <p class="text-sm mb-2 text-uppercase font-weight-bold text-warning">Pending</p>
+                                    <h2 class="font-weight-bolder mb-0" id="itemsWithoutBarcodes">-</h2>
+                                    <span class="text-sm text-warning">Need Barcode</span>
                                 </div>
                             </div>
                         </div>
@@ -85,6 +52,21 @@
                 </div>
             </div>
         </div>
+
+        <style>
+        .border-end {
+            border-right: 1px solid #dee2e6 !important;
+        }
+        .numbers h2 {
+            font-size: 2.5rem;
+            line-height: 1.2;
+        }
+        #lastUpdate {
+            font-size: 0.75rem;
+            padding: 0.5rem 0.75rem;
+        }
+        </style>
+        </style>
 
         <div class="row">
             <div class="col-12">
@@ -155,18 +137,18 @@
                                                     <a href="{{ route('barcodes.edit', $barcode) }}" class="btn btn-link text-secondary font-weight-bold text-xs" data-toggle="tooltip" data-original-title="Edit barcode">
                                                         <i class="fas fa-pencil-alt text-xs me-1"></i>Edit
                                                     </a>
-                                                    <a href="{{ route('barcodes.generate', $barcode) }}" class="btn btn-link text-info font-weight-bold text-xs" data-toggle="tooltip" data-original-title="Generate barcode">
-                                                        <i class="fas fa-sync-alt text-xs me-1"></i>Generate
-                                                    </a>
+
                                                     <a href="{{ route('barcodes.print', $barcode) }}" class="btn btn-link text-warning font-weight-bold text-xs" target="_blank" data-toggle="tooltip" data-original-title="Print barcode">
                                                         <i class="fas fa-print text-xs me-1"></i>Print
                                                     </a>
-                                                    <form action="{{ route('barcodes.destroy', $barcode) }}" method="POST" class="d-inline">
+                                                    <form id="delete-form-{{ $barcode->id }}" action="{{ route('barcodes.destroy', $barcode) }}" method="POST" class="d-inline">
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-link text-danger font-weight-bold text-xs" 
-                                                                onclick="return confirm('Are you sure you want to delete this barcode?')" 
-                                                                data-toggle="tooltip" data-original-title="Delete barcode">
+                                                        <button type="button" 
+                                                                class="btn btn-link text-danger font-weight-bold text-xs" 
+                                                                onclick="deleteConfirmation('delete-form-{{ $barcode->id }}')"
+                                                                data-toggle="tooltip" 
+                                                                data-original-title="Delete barcode">
                                                             <i class="fas fa-trash text-xs me-1"></i>Delete
                                                         </button>
                                                     </form>
@@ -199,28 +181,182 @@
 
 @section('scripts')
 <script>
+// Delete confirmation handler
+function deleteConfirmation(formId) {
+    Swal.fire({
+        title: 'Konfirmasi Hapus',
+        text: "Apakah anda yakin ingin menghapus data ini?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById(formId).submit();
+        }
+    });
+}
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Load statistics
+    // Initialize statistics
     loadStats();
 });
 
-function loadStats() {
-    fetch('{{ route("barcodes.generation-stats") }}')
-        .then(response => response.json())
+function animateNumber(elementId, finalNumber) {
+    console.log(`Animating ${elementId} to ${finalNumber}`);
+    const element = document.getElementById(elementId);
+    
+    if (!element) {
+        console.error(`Element with id ${elementId} not found`);
+        return;
+    }
+
+    // Pastikan finalNumber adalah angka
+    finalNumber = parseInt(finalNumber) || 0;
+    
+    // Jika angka kecil, tidak perlu animasi
+    if (finalNumber <= 5) {
+        element.textContent = finalNumber.toString();
+        return;
+    }
+
+    const duration = 1000;
+    const stepTime = 50;
+    const steps = duration / stepTime;
+    const increment = finalNumber / steps;
+    let currentNumber = 0;
+    let currentStep = 0;
+
+    const animation = setInterval(() => {
+        currentStep++;
+        currentNumber += increment;
+        
+        if (currentStep >= steps) {
+            clearInterval(animation);
+            element.textContent = finalNumber.toString();
+        } else {
+            element.textContent = Math.round(currentNumber).toString();
+        }
+    }, stepTime);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Load statistics
+    loadStats();
+
+    // Add refresh button handler
+    document.getElementById('refreshStats').addEventListener('click', function() {
+        this.disabled = true;
+        const icon = this.querySelector('i');
+        icon.classList.add('fa-spin');
+        
+        loadStats().finally(() => {
+            setTimeout(() => {
+                this.disabled = false;
+                icon.classList.remove('fa-spin');
+            }, 1000);
+        });
+    });
+});
+
+function updateLastUpdateTime() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('updateTime').textContent = `${hours}:${minutes}`;
+}
+
+async function loadStats() {
+    console.log('Loading barcode statistics...');
+    
+    // Tampilkan loading state
+    document.getElementById('totalItems').textContent = 'Loading...';
+    document.getElementById('itemsWithBarcodes').textContent = 'Loading...';
+    document.getElementById('itemsWithoutBarcodes').textContent = 'Loading...';
+    
+    // Update waktu
+    updateLastUpdateTime();
+    
+    return fetch('{{ route("barcodes.generation-stats") }}', {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+        },
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            console.log('Response received:', response);
+            return response.json();
+        })
         .then(data => {
-            document.getElementById('totalItems').textContent = data.total_items;
-            document.getElementById('itemsWithBarcodes').textContent = data.items_with_barcodes;
-            document.getElementById('itemsWithoutBarcodes').textContent = data.items_without_barcodes;
-            document.getElementById('completionPercentage').textContent = data.completion_percentage + '%';
+            console.log('Data received:', data);
+            
+            if (!data.total_items && data.total_items !== 0) {
+                throw new Error('Invalid data received from server');
+            }
+            // Animate the numbers
+            animateNumber('totalItems', data.total_items);
+            animateNumber('itemsWithBarcodes', data.items_with_barcodes);
+            animateNumber('itemsWithoutBarcodes', data.items_without_barcodes);
+            
+            // Update completion percentage and progress bar
+            const completionPercentage = data.completion_percentage;
+            const formattedPercentage = Number(completionPercentage).toFixed(0); // Bulatkan ke angka bulat
+            document.getElementById('completionPercentage').textContent = formattedPercentage + '%';
+            
+            // Animate progress bar with color based on percentage
+            const progressBar = document.getElementById('completionProgress');
+            progressBar.style.width = '0%';
+            
+            // Set warna berdasarkan persentase
+            let barColor = 'bg-gradient-danger'; // 0-25%
+            if (completionPercentage > 75) {
+                barColor = 'bg-gradient-success';
+            } else if (completionPercentage > 50) {
+                barColor = 'bg-gradient-info';
+            } else if (completionPercentage > 25) {
+                barColor = 'bg-gradient-warning';
+            }
+            
+            // Update class warna
+            progressBar.className = `progress-bar ${barColor}`;
+            
+            // Animate width
+            setTimeout(() => {
+                progressBar.style.transition = 'width 1s ease-in-out';
+                progressBar.style.width = formattedPercentage + '%';
+            }, 200);
         })
         .catch(error => {
             console.error('Error loading stats:', error);
+            console.error('Error details:', error.stack);
+            // Show error alert
+            const errorAlert = `
+                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-circle flex-shrink-0 me-2"></i>
+                    <div>
+                        <strong>Error!</strong> Failed to load barcode statistics. Please refresh the page or contact support if the problem persists.
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            document.getElementById('alert').innerHTML = errorAlert;
             // Set fallback values
             document.getElementById('totalItems').textContent = '0';
             document.getElementById('itemsWithBarcodes').textContent = '0';
             document.getElementById('itemsWithoutBarcodes').textContent = '0';
             document.getElementById('completionPercentage').textContent = '0%';
+            document.getElementById('completionProgress').style.width = '0%';
         });
 }
 </script>
 @endsection
+

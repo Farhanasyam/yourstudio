@@ -17,13 +17,12 @@ class Report extends Model
         'data',
         'generated_by',
         'generated_at',
-        'file_path',
     ];
 
     protected $casts = [
         'parameters' => 'array',
         'data' => 'array',
-        'generated_at' => 'datetime',
+        'generated_at' => 'datetime:Asia/Jakarta',
     ];
 
     /**
@@ -87,22 +86,4 @@ class Report extends Model
         return $this->generated_at->diffInHours(now()) > 24;
     }
 
-    /**
-     * Get formatted file size
-     */
-    public function getFileSizeAttribute()
-    {
-        if (!$this->file_path || !file_exists(storage_path('app/' . $this->file_path))) {
-            return '0 KB';
-        }
-
-        $size = filesize(storage_path('app/' . $this->file_path));
-        $units = ['B', 'KB', 'MB', 'GB'];
-        
-        for ($i = 0; $size > 1024 && $i < count($units) - 1; $i++) {
-            $size /= 1024;
-        }
-        
-        return round($size, 2) . ' ' . $units[$i];
-    }
 }

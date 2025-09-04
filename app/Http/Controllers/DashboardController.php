@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
+use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\Item;
 use App\Models\Category;
 use App\Models\Supplier;
 use App\Models\StockIn;
 use App\Models\StockAdjustment;
 use App\Models\User;
-use App\Models\SaleDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -23,8 +23,8 @@ class DashboardController extends Controller
         $totalSuppliers = Supplier::count();
         $totalUsers = User::count();
         
-        // Get recent sales with details
-        $recentSales = Sale::with(['user', 'details.item'])
+        // Get recent transactions with details
+        $recentSales = Transaction::with(['cashier', 'transactionItems.item'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -48,27 +48,28 @@ class DashboardController extends Controller
             ->get();
             
         // Get sales statistics for the current month
-        $currentMonthSales = Sale::whereMonth('created_at', now()->month)
+        $currentMonthSales = Transaction::whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('total_amount');
             
         // Get total sales
-        $totalSales = Sale::sum('total_amount');
+        $totalSales = Transaction::sum('total_amount');
+        
+        // Get daily sales for the last 7 days
+        $dailySales = Transaction::select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total_amount) as total'))
+            ->where('created_at', '>=', now()->subDays(7))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+            
+        // Get yesterday vs today sales comparison
+        $todaySales = Transaction::whereDate('created_at', today())->sum('total_amount');
+        $yesterdaySales = Transaction::whereDate('created_at', today()->subDay())->sum('total_amount');
+        $salesGrowth = $yesterdaySales > 0 ? (($todaySales - $yesterdaySales) / $yesterdaySales) * 100 : 0;
         
         // Get items by category for chart
         $itemsByCategory = Category::withCount('items')->get();
         
-        // Get top selling items this month
-        $topSellingItems = SaleDetail::select('item_id', DB::raw('SUM(quantity) as total_sold'))
-            ->with('item')
-            ->whereHas('sale', function($query) {
-                $query->whereMonth('created_at', now()->month)
-                      ->whereYear('created_at', now()->year);
-            })
-            ->groupBy('item_id')
-            ->orderBy('total_sold', 'desc')
-            ->limit(5)
-            ->get();
             
         // Get pending users for superadmin
         $pendingUsers = collect();
@@ -90,8 +91,11 @@ class DashboardController extends Controller
             'currentMonthSales',
             'totalSales',
             'itemsByCategory',
-            'topSellingItems',
-            'pendingUsers'
+            'pendingUsers',
+            'dailySales',
+            'todaySales',
+            'yesterdaySales',
+            'salesGrowth'
         ));
     }
 }

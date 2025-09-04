@@ -72,9 +72,10 @@
                                     <form action="{{ route('stock-in.destroy', $stockIn) }}" method="POST" class="d-inline">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="dropdown-item text-danger" 
-                                                onclick="return confirm('Are you sure you want to delete this stock in transaction?')">
-                                            <i class="fas fa-trash me-2"></i> Delete
+                                        <button type="submit" class="btn btn-link text-danger font-weight-bold text-xs" 
+                                                onclick="return showConfirmDialog('Are you sure you want to delete this stock in transaction?', 'Confirm Delete', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })" 
+                                                data-toggle="tooltip" data-original-title="Delete stock in">
+                                            <i class="fas fa-trash text-xs me-1"></i>Delete
                                         </button>
                                     </form>
                                 @endif

@@ -221,12 +221,12 @@
         
         // Validation
         if (!itemSelect.value) {
-            alert('Please select an item first');
+            showWarningAlert('Please select an item first');
             return;
         }
         
         if (!barcodeType) {
-            alert('Please select barcode type first');
+            showWarningAlert('Please select barcode type first');
             return;
         }
 

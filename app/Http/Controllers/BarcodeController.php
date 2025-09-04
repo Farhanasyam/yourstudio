@@ -587,17 +587,52 @@ class BarcodeController extends Controller
      */
     public function getGenerationStats()
     {
-        $totalItems = Item::count();
-        $itemsWithBarcodes = Item::whereHas('barcodes', function($query) {
-            $query->where('is_active', true);
-        })->count();
-        $itemsWithoutBarcodes = $totalItems - $itemsWithBarcodes;
+        try {
+            // Debug: Tampilkan query SQL
+            DB::enableQueryLog();
 
-        return response()->json([
-            'total_items' => $totalItems,
-            'items_with_barcodes' => $itemsWithBarcodes,
-            'items_without_barcodes' => $itemsWithoutBarcodes,
-            'completion_percentage' => $totalItems > 0 ? round(($itemsWithBarcodes / $totalItems) * 100, 2) : 0
-        ]);
+            // Hitung total item yang aktif
+            $totalItems = Item::count();
+            
+            // Hitung item yang memiliki barcode aktif
+            $itemsWithBarcodes = Item::whereHas('barcodes', function($query) {
+                $query->where('is_active', true);
+            })->count();
+            
+            // Hitung item yang belum memiliki barcode aktif
+            $itemsWithoutBarcodes = $totalItems - $itemsWithBarcodes;
+
+            // Debug: Log query yang dijalankan
+            \Log::info('SQL Queries:', [
+                'queries' => DB::getQueryLog()
+            ]);
+
+            // Hitung persentase penyelesaian
+            $completionPercentage = $totalItems > 0 ? round(($itemsWithBarcodes / $totalItems) * 100, 2) : 0;
+
+            // Log untuk debugging
+            \Log::info('Barcode Statistics', [
+                'total_items' => $totalItems,
+                'items_with_barcodes' => $itemsWithBarcodes,
+                'items_without_barcodes' => $itemsWithoutBarcodes,
+                'completion_percentage' => $completionPercentage
+            ]);
+
+            $response = [
+                'total_items' => $totalItems,
+                'items_with_barcodes' => $itemsWithBarcodes,
+                'items_without_barcodes' => $itemsWithoutBarcodes,
+                'completion_percentage' => $completionPercentage
+            ];
+            \Log::info('Response data:', $response);
+            
+            return response()->json($response);
+        } catch (\Exception $e) {
+            \Log::error('Error in getGenerationStats: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to get statistics',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

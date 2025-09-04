@@ -6,6 +6,7 @@
     <title>Struk Pembayaran - {{ $transaction->transaction_code }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         * {
             margin: 0;
@@ -54,8 +55,8 @@
         
         .header {
             text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
             position: relative;
         }
 
@@ -72,15 +73,15 @@
         }
         
         .logo {
-            width: 90px;
-            height: 90px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
             margin: 0 auto 15px;
             display: block;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-            border: 3px solid #fff;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            padding: 2px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            border: none;
+            background: transparent;
+            padding: 0;
         }
 
         .logo img {
@@ -135,7 +136,7 @@
         .store-info {
             font-size: 11px;
             line-height: 1.4;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             color: #718096;
             font-weight: 400;
         }
@@ -149,7 +150,7 @@
             border-radius: 20px;
             font-size: 10px;
             font-weight: 500;
-            margin-top: 8px;
+            margin-top: 4px;
         }
 
         .social-info i {
@@ -160,7 +161,7 @@
             border: none;
             height: 1px;
             background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
-            margin: 20px 0;
+            margin: 10px 0;
             position: relative;
         }
 
@@ -199,7 +200,7 @@
             background: #f8fafc;
             padding: 15px;
             border-radius: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             border: 1px solid #e2e8f0;
         }
         
@@ -426,6 +427,52 @@
             color: #667eea;
         }
         
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .btn-print, .btn-finish {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-print {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-print:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-finish {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+        }
+        
+        .btn-finish:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(72, 187, 120, 0.4);
+        }
+        
         @media print {
             body {
                 padding: 0;
@@ -440,17 +487,45 @@
             .receipt {
                 max-width: none;
                 margin: 0;
-                padding: 10px;
+                padding: 15px;
+            }
+            
+            .logo {
+                width: 180px !important;
+                height: 180px !important;
+                margin: 0 auto 25px !important;
+                border: none !important;
+                background: transparent !important;
+            }
+            
+            .store-name {
+                font-size: 28px !important;
+                margin-bottom: 15px !important;
+                font-weight: 800 !important;
+            }
+            
+            .store-info {
+                font-size: 13px !important;
+                margin-bottom: 5px !important;
+            }
+            
+            .social-info {
+                font-size: 12px !important;
+                padding: 8px 16px !important;
             }
             
             .no-print {
                 display: none !important;
             }
 
-            .separator::before,
-            .separator::after {
-                display: none;
-            }
+                    .separator::before,
+        .separator::after {
+            display: none;
+        }
+        
+        .action-buttons {
+            display: none;
+        }
         }
         
         .print-button {
@@ -509,7 +584,7 @@
             <!-- Header -->
             <div class="header">
                 <div class="logo">
-                    <img src="{{ asset('img/yourstudio.png') }}" alt="YOUR STUDIO">
+                    <img src="{{ asset('img/strukyourstudio.png') }}" alt="YOUR STUDIO">
                 </div>
                 <div class="store-name">YOUR STUDIO</div>
                 <div class="store-info">
@@ -602,14 +677,48 @@
                     Dicetak pada {{ now()->format('d-m-Y H:i:s') }}
                 </div>
             </div>
+            
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn-print" onclick="printReceipt()">
+                    <i class="fas fa-print"></i>
+                    Print Struk
+                </button>
+                <button class="btn-finish" onclick="finishTransaction()">
+                    <i class="fas fa-check-circle"></i>
+                    Selesai
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
-        // Auto print when page loads (optional)
+        // Auto print when page loads
         window.onload = function() {
-            // Uncomment line below to auto print
-            // setTimeout(() => window.print(), 1000);
+            // Auto print after 1 second
+            setTimeout(() => {
+                window.print();
+            }, 1000);
+        }
+
+        // Print receipt function
+        function printReceipt() {
+            window.print();
+        }
+
+        // Finish transaction function
+        function finishTransaction() {
+            // Show success notification
+            Swal.fire({
+                title: 'Transaksi Selesai!',
+                text: 'Struk telah dicetak dan transaksi masuk ke histori',
+                icon: 'success',
+                confirmButtonText: 'OK',
+                allowOutsideClick: false
+            }).then((result) => {
+                // Redirect to transaction history
+                window.location.href = '/transaction-history';
+            });
         }
 
         // Add some interactivity

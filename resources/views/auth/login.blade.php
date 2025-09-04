@@ -26,8 +26,11 @@
                                             <input type="email" name="email" class="form-control form-control-lg" placeholder="Email" value="{{ old('email') }}" aria-label="Email">
                                             @error('email') <p class="text-danger text-xs pt-1">{{ $message }}</p>@enderror
                                         </div>
-                                        <div class="mb-3">
-                                            <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" aria-label="Password">
+                                        <div class="mb-3 position-relative">
+                                            <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" aria-label="Password" id="password">
+                                            <span class="position-absolute top-50 end-0 translate-middle-y pe-3" style="cursor: pointer;" onclick="togglePasswordVisibility()">
+                                                <i class="fas fa-eye" id="togglePassword"></i>
+                                            </span>
                                             @error('password') <p class="text-danger text-xs pt-1">{{ $message }}</p>@enderror
                                         </div>
                                         <div class="form-check form-switch">

@@ -13,7 +13,10 @@ class SystemSetting extends Model
         'key',
         'value',
         'type',
+        'group',
+        'label',
         'description',
+        'is_public'
     ];
 
     public static function get($key, $default = null)

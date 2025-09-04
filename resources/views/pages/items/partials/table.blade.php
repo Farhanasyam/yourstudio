@@ -64,15 +64,6 @@
                             <a href="{{ route('items.edit', $item) }}" class="btn btn-link text-secondary font-weight-bold text-xs" data-toggle="tooltip" data-original-title="Edit item">
                                 <i class="fas fa-pencil-alt text-xs me-1"></i>Edit
                             </a>
-                            <form action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-link text-danger font-weight-bold text-xs" 
-                                        onclick="return confirm('Are you sure you want to delete this item?')" 
-                                        data-toggle="tooltip" data-original-title="Delete item">
-                                    <i class="fas fa-trash text-xs me-1"></i>Delete
-                                </button>
-                            </form>
                         </div>
                     </td>
                 </tr>

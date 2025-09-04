@@ -32,6 +32,11 @@ class Item extends Model
     ];
 
     // Auto-generate SKU
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
     protected static function boot()
     {
         parent::boot();
@@ -69,6 +74,11 @@ class Item extends Model
     }
 
     public function barcodes()
+    {
+        return $this->hasMany(Barcode::class)->where('is_active', true);
+    }
+
+    public function allBarcodes()
     {
         return $this->hasMany(Barcode::class);
     }

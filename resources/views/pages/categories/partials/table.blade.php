@@ -41,11 +41,11 @@
                             <a href="{{ route('categories.edit', $category) }}" class="btn btn-link text-secondary font-weight-bold text-xs" data-toggle="tooltip" data-original-title="Edit category">
                                 <i class="fas fa-pencil-alt text-xs me-1"></i>Edit
                             </a>
-                            <form action="{{ route('categories.destroy', $category) }}" method="POST" class="d-inline">
+                            <form id="delete-form-category-{{ $category->id }}" action="{{ route('categories.destroy', $category) }}" method="POST" class="d-inline">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-link text-danger font-weight-bold text-xs" 
-                                        onclick="return confirm('Are you sure you want to delete this category?')" 
+                                <button type="button" class="btn btn-link text-danger font-weight-bold text-xs" 
+                                        onclick="deleteConfirmation('delete-form-category-{{ $category->id }}')"
                                         data-toggle="tooltip" data-original-title="Delete category">
                                     <i class="fas fa-trash text-xs me-1"></i>Delete
                                 </button>

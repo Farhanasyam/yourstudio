@@ -287,6 +287,141 @@ class TransactionHistoryController extends Controller
     }
 
     /**
+     * Bulk delete transactions
+     */
+    public function bulkDelete(Request $request)
+    {
+        try {
+            // Only admin and super admin can perform this action
+            if (!auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only administrators can perform this action.'
+                ], 403);
+            }
+
+            $request->validate([
+                'transaction_ids' => 'required|array',
+                'transaction_ids.*' => 'integer|exists:transactions,id'
+            ]);
+
+            $transactionIds = $request->input('transaction_ids');
+            $deletedCount = 0;
+            $errors = [];
+
+            foreach ($transactionIds as $transactionId) {
+                try {
+                    $transaction = Transaction::find($transactionId);
+                    
+                    if ($transaction) {
+                        // Force delete all related data without checking constraints
+                        DB::statement('SET FOREIGN_KEY_CHECKS = 0');
+                        
+                        try {
+                            // Delete related transaction items
+                            DB::table('transaction_items')->where('transaction_id', $transactionId)->delete();
+                            
+                            // Now delete the transaction
+                            $transaction->delete();
+                            $deletedCount++;
+                            
+                        } finally {
+                            // Re-enable foreign key checks
+                            DB::statement('SET FOREIGN_KEY_CHECKS = 1');
+                        }
+                    } else {
+                        $errors[] = "Transaction with ID {$transactionId} not found.";
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = "Failed to delete transaction ID {$transactionId}: " . $e->getMessage();
+                }
+            }
+
+            if ($deletedCount > 0) {
+                $message = "Successfully deleted {$deletedCount} transaction(s) and all connected data.";
+                if (!empty($errors)) {
+                    $message .= " " . count($errors) . " transaction(s) could not be deleted.";
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'deleted_count' => $deletedCount,
+                    'errors' => $errors
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No transactions were deleted. ' . implode(' ', $errors)
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing bulk delete: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Delete ALL transactions in the entire database
+     */
+    public function deleteAllInDatabase(Request $request)
+    {
+        try {
+            // Only admin and super admin can perform this action
+            if (!auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. Only administrators can perform this action.'
+                ], 403);
+            }
+
+            // Get total count of transactions
+            $totalTransactions = Transaction::count();
+            
+            if ($totalTransactions === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No transactions found in the database.'
+                ]);
+            }
+
+            // Force delete all related data without checking constraints
+            DB::statement('SET FOREIGN_KEY_CHECKS = 0');
+            
+            try {
+                // Delete all transaction items
+                DB::table('transaction_items')->truncate();
+                
+                // Delete all transactions
+                Transaction::truncate();
+                
+                // Reset auto-increment counters
+                DB::statement('ALTER TABLE transactions AUTO_INCREMENT = 1');
+                DB::statement('ALTER TABLE transaction_items AUTO_INCREMENT = 1');
+                
+            } finally {
+                // Re-enable foreign key checks
+                DB::statement('SET FOREIGN_KEY_CHECKS = 1');
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully deleted ALL {$totalTransactions} transactions and all connected data from the database. The transaction history has been completely cleared.",
+                'deleted_count' => $totalTransactions
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting all transactions: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Get transaction statistics
      */
     private function getStatistics($user)

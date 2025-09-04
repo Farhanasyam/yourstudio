@@ -60,28 +60,28 @@
                                     </div>
                                     <div class="card-body">
                                         @if($user->approval_status == 'pending')
-                                            <form action="{{ route('user-management.approve', $user) }}" method="POST" class="mb-2">
+                                            <form action="{{ route('user-management.approve', $user) }}" method="POST" class="d-inline">
                                                 @csrf
-                                                <button type="submit" class="btn btn-success btn-sm w-100" 
-                                                        onclick="return confirm('Setujui user ini?')">
-                                                    <i class="fas fa-check"></i> Setujui User
+                                                <button type="submit" class="btn btn-success btn-sm" 
+                                                        onclick="return showConfirmDialog('Setujui user ini?', 'Confirm Approval', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                    <i class="fas fa-check"></i> Approve
                                                 </button>
                                             </form>
-                                            <form action="{{ route('user-management.reject', $user) }}" method="POST" class="mb-2">
+                                            
+                                            <form action="{{ route('user-management.reject', $user) }}" method="POST" class="d-inline">
                                                 @csrf
-                                                <button type="submit" class="btn btn-warning btn-sm w-100" 
-                                                        onclick="return confirm('Tolak user ini?')">
-                                                    <i class="fas fa-times"></i> Tolak User
+                                                <button type="submit" class="btn btn-warning btn-sm" 
+                                                        onclick="return showConfirmDialog('Tolak user ini?', 'Confirm Rejection', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                    <i class="fas fa-times"></i> Reject
                                                 </button>
                                             </form>
                                         @endif
                                         
-                                        <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="mb-2">
+                                        <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="d-inline">
                                             @csrf
-                                            <button type="submit" class="btn {{ $user->is_active ? 'btn-warning' : 'btn-info' }} btn-sm w-100" 
-                                                    onclick="return confirm('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?')">
-                                                <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }}"></i> 
-                                                {{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                            <button type="submit" class="btn btn-info btn-sm" 
+                                                    onclick="return showConfirmDialog('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }}"></i> {{ $user->is_active ? 'Deactivate' : 'Activate' }}
                                             </button>
                                         </form>
                                     </div>

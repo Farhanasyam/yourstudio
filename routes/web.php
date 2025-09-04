@@ -18,9 +18,12 @@ Route::get('/', function () {
 });
 
 
+
+
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\ResetPassword;
@@ -34,8 +37,6 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\SystemSettingController;
-
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\VerificationController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\TransactionHistoryController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\NotificationController;
 
             
 
@@ -88,8 +90,6 @@ Route::group(['middleware' => ['auth', 'superadmin', 'prevent.back']], function 
 	Route::get('/reports/create', [ReportController::class, 'create'])->name('reports.create');
 	Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
 	Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
-	Route::get('/reports/{report}/export', [ReportController::class, 'export'])->name('reports.export');
-	Route::get('/reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
 	Route::delete('/reports/{report}', [ReportController::class, 'destroy'])->name('reports.destroy');
 });
 
@@ -112,7 +112,6 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
 	Route::get('/items/test-import', [ItemController::class, 'testImport'])->name('items.test.import');
 	Route::get('/items/test-clean-price', [ItemController::class, 'testCleanPrice'])->name('items.test.clean-price');
-	Route::post('/items/bulk-delete', [ItemController::class, 'bulkDelete'])->name('items.bulk-delete');
 
 	Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
 	Route::get('/items/{item}/edit', [ItemController::class, 'edit'])->name('items.edit');
@@ -151,7 +150,9 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	Route::post('/barcodes', [BarcodeController::class, 'store'])->name('barcodes.store');
 	Route::get('/barcodes/bulk-generate', [BarcodeController::class, 'bulkGenerateForm'])->name('barcodes.bulk-generate-form');
 	Route::post('/barcodes/bulk-generate', [BarcodeController::class, 'bulkGenerate'])->name('barcodes.bulk-generate');
-	Route::get('/barcodes/generation-stats', [BarcodeController::class, 'getGenerationStats'])->name('barcodes.generation-stats');
+	Route::get('/barcodes/generation-stats', [BarcodeController::class, 'getGenerationStats'])
+    ->middleware(['auth', 'approved'])
+    ->name('barcodes.generation-stats');
 	Route::get('/barcodes/{barcode}/edit', [BarcodeController::class, 'edit'])->name('barcodes.edit');
 	Route::put('/barcodes/{barcode}', [BarcodeController::class, 'update'])->name('barcodes.update');
 	Route::delete('/barcodes/{barcode}', [BarcodeController::class, 'destroy'])->name('barcodes.destroy');
@@ -161,7 +162,7 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 });
 
 // Routes for Kasir, Admin, and Super Admin (Sales and Barcode viewing)
-Route::group(['middleware' => ['auth', 'kasir', 'prevent.back']], function () {
+Route::group(['middleware' => ['auth', 'approved', 'prevent.back']], function () {
 	// Sales CRUD Routes
 	Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
 	Route::get('/sales/create', [SaleController::class, 'create'])->name('sales.create');
@@ -180,6 +181,11 @@ Route::group(['middleware' => ['auth', 'kasir', 'prevent.back']], function () {
 	// Kasir Routes
 	Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
 	Route::post('/kasir/search-barcode', [KasirController::class, 'searchByBarcode'])->name('kasir.search-barcode');
+	Route::get('/kasir/test-connection', [KasirController::class, 'testConnection'])->name('kasir.test-connection');
+Route::get('/kasir/test-transaction-model', [KasirController::class, 'testTransactionModel'])->name('kasir.test-transaction-model');
+	Route::post('/kasir/search-name', [KasirController::class, 'searchByName'])->name('kasir.search-name');
+Route::get('/kasir/test-search', [KasirController::class, 'testSearch'])->name('kasir.test-search');
+Route::get('/test-backend', [KasirController::class, 'testSearch'])->name('test.backend');
 	Route::post('/kasir/transaction', [KasirController::class, 'store'])->name('kasir.store');
 	Route::get('/kasir/receipt/{transaction}', [KasirController::class, 'receipt'])->name('kasir.receipt');
 	Route::get('/kasir/today-transactions', [KasirController::class, 'todayTransactions'])->name('kasir.today-transactions');
@@ -195,13 +201,36 @@ Route::group(['middleware' => ['auth', 'kasir', 'prevent.back']], function () {
 	Route::post('/transaction-history/fix-transaction-cashier/{transaction}', [TransactionHistoryController::class, 'fixSpecificTransactionCashier'])->name('transaction-history.fix-transaction-cashier');
 	Route::get('/transaction-history-export', [TransactionHistoryController::class, 'export'])->name('transaction-history.export');
 	Route::get('/api/recent-transactions', [TransactionHistoryController::class, 'getRecentTransactions'])->name('api.recent-transactions');
+	Route::post('/transaction-history/bulk-delete', [TransactionHistoryController::class, 'bulkDelete'])->name('transaction-history.bulk-delete');
+	Route::post('/transaction-history/delete-all-in-database', [TransactionHistoryController::class, 'deleteAllInDatabase'])->name('transaction-history.delete-all-in-database');
 	
 	// Search Routes
 	Route::get('/api/search/global', [SearchController::class, 'globalSearch'])->name('api.search.global');
 	Route::get('/api/search/items', [SearchController::class, 'quickItemSearch'])->name('api.search.items');
 });
 
+// Notification routes - untuk semua user yang sudah disetujui
+Route::group(['middleware' => ['auth', 'approved']], function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{id}/mark-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::post('/notifications/{id}/mark-read-ajax', [NotificationController::class, 'markAsReadAjax'])->name('notifications.mark-read-ajax');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('api.notifications.unread-count');
+    Route::get('/api/notifications', [NotificationController::class, 'getNotifications'])->name('api.notifications');
+});
+
+// System Settings routes (Admin and Super Admin only)
+Route::group(['middleware' => ['auth', 'admin']], function () {
+    Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
+    Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
+    Route::get('/settings/{key}', [SystemSettingController::class, 'getValue'])->name('settings.get');
+});
+
 // Fallback route for other pages (approved users only)
 Route::group(['middleware' => ['auth', 'approved']], function () {
 	Route::get('/{page}', [PageController::class, 'index'])->name('page');
 });
+
+// Notification routes
+Route::get('/kasir/notifications', [KasirController::class, 'getNotifications'])->name('kasir.notifications');
+Route::delete('/kasir/notifications', [KasirController::class, 'clearNotifications'])->name('kasir.clearNotifications');

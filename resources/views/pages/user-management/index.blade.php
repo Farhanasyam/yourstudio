@@ -128,18 +128,18 @@
                                                             <li>
                                                                 <form action="{{ route('user-management.approve', $user) }}" method="POST" class="d-inline">
                                                                     @csrf
-                                                                    <button type="submit" class="dropdown-item text-success" 
-                                                                            onclick="return confirm('Setujui user ini?')">
-                                                                        <i class="fas fa-check"></i> Setujui
+                                                                    <button type="submit" class="btn btn-success btn-sm" 
+                                                                            onclick="return showConfirmDialog('Setujui user ini?', 'Confirm Approval', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                                        <i class="fas fa-check"></i> Approve
                                                                     </button>
                                                                 </form>
                                                             </li>
                                                             <li>
                                                                 <form action="{{ route('user-management.reject', $user) }}" method="POST" class="d-inline">
                                                                     @csrf
-                                                                    <button type="submit" class="dropdown-item text-warning" 
-                                                                            onclick="return confirm('Tolak user ini?')">
-                                                                        <i class="fas fa-times"></i> Tolak
+                                                                    <button type="submit" class="btn btn-warning btn-sm" 
+                                                                            onclick="return showConfirmDialog('Tolak user ini?', 'Confirm Rejection', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                                        <i class="fas fa-times"></i> Reject
                                                                     </button>
                                                                 </form>
                                                             </li>
@@ -150,20 +150,20 @@
                                                             <li>
                                                                 <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="d-inline">
                                                                     @csrf
-                                                                    <button type="submit" class="dropdown-item {{ $user->is_active ? 'text-warning' : 'text-info' }}" 
-                                                                            onclick="return confirm('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?')">
+                                                                    <button type="submit" class="btn btn-info btn-sm" 
+                                                                            onclick="return showConfirmDialog('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
                                                                         <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }}"></i> 
-                                                                        {{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                                                        {{ $user->is_active ? 'Deactivate' : 'Activate' }}
                                                                     </button>
                                                                 </form>
                                                             </li>
                                                             <li>
-                                                                <form action="{{ route('user-management.destroy', $user) }}" method="POST" class="d-inline">
+                                                                <form id="delete-form-user-{{ $user->id }}" action="{{ route('user-management.destroy', $user) }}" method="POST" class="d-inline">
                                                                     @csrf
                                                                     @method('DELETE')
-                                                                    <button type="submit" class="dropdown-item text-danger" 
-                                                                            onclick="return confirm('Hapus user ini?')">
-                                                                        <i class="fas fa-trash"></i> Hapus
+                                                                    <button type="button" class="btn btn-danger btn-sm" 
+                                                                            onclick="deleteConfirmation('delete-form-user-{{ $user->id }}')">
+                                                                        <i class="fas fa-trash"></i> Delete
                                                                     </button>
                                                                 </form>
                                                             </li>

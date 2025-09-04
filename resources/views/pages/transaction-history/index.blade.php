@@ -278,6 +278,12 @@
                                             <a href="/kasir/receipt/{{ $transaction->id }}?copy=1" target="_blank" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Cetak Ulang Struk (Copy)">
                                                 <i class="fas fa-print"></i>
                                             </a>
+                                            
+                                            @if(auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
+                                            <button type="button" class="btn btn-sm btn-outline-danger delete-transaction" data-transaction-id="{{ $transaction->id }}" data-transaction-code="{{ $transaction->transaction_code }}" data-bs-toggle="tooltip" title="Hapus Transaksi">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            @endif
                                         </td>
                                     </tr>
                                     @empty
@@ -316,6 +322,164 @@
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+
+    // Delete individual transaction
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-transaction')) {
+            const button = e.target.closest('.delete-transaction');
+            const transactionId = button.getAttribute('data-transaction-id');
+            const transactionCode = button.getAttribute('data-transaction-code');
+            
+            if (confirm(`Apakah Anda yakin ingin menghapus transaksi "${transactionCode}"?\n\nTindakan ini akan menghapus:\n• Transaksi\n• Item transaksi\n• Data terkait\n\nTindakan ini tidak dapat dibatalkan!`)) {
+                // Show loading state
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                button.disabled = true;
+                
+                // Send delete request
+                fetch(`/transaction-history/${transactionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Remove the row from the table
+                        button.closest('tr').remove();
+                        alert(`Transaksi "${transactionCode}" berhasil dihapus!`);
+                        
+                        // Check if table is empty
+                        const tbody = document.querySelector('tbody');
+                        if (tbody.children.length === 0) {
+                            tbody.innerHTML = `
+                                <tr>
+                                    <td colspan="8" class="text-center py-4">
+                                        <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">Tidak ada transaksi ditemukan</p>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    } else {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Terjadi kesalahan saat menghapus transaksi');
+                    // Restore button
+                    button.innerHTML = '<i class="fas fa-trash"></i>';
+                    button.disabled = false;
+                });
+            }
+        }
+    });
+
+    // Delete all transactions on current page
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteAllTransactionsBtn = document.getElementById('deleteAllTransactions');
+        
+        if (deleteAllTransactionsBtn) {
+            deleteAllTransactionsBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Get all transaction rows
+                const transactionRows = document.querySelectorAll('tbody tr');
+                const totalTransactions = transactionRows.length;
+                
+                if (totalTransactions === 0) {
+                    alert('Tidak ada transaksi untuk dihapus');
+                    return;
+                }
+                
+                // First confirmation
+                if (!confirm(`⚠️ PERINGATAN: Anda akan menghapus ${totalTransactions} transaksi dari halaman ini!\n\nIni akan menghapus:\n• Semua transaksi\n• Semua item transaksi\n• Data terkait\n\nTindakan ini tidak dapat dibatalkan!\n\nApakah Anda yakin?`)) {
+                    return;
+                }
+                
+                // Second confirmation with transaction codes
+                const transactionCodes = [];
+                transactionRows.forEach(row => {
+                    const codeElement = row.querySelector('h6.mb-0.text-sm');
+                    if (codeElement) {
+                        transactionCodes.push(codeElement.textContent.trim());
+                    }
+                });
+                
+                const codeList = transactionCodes.slice(0, 5).join('\n');
+                const remainingCount = transactionCodes.length > 5 ? transactionCodes.length - 5 : 0;
+                const detailedMessage = `Transaksi yang akan dihapus:\n\n${codeList}${remainingCount > 0 ? `\n... dan ${remainingCount} transaksi lainnya` : ''}\n\nApakah Anda yakin ingin melanjutkan?`;
+                
+                if (!confirm(detailedMessage)) {
+                    return;
+                }
+                
+                // Final safety check
+                const safetyInput = prompt('Ketik "HAPUS" (tanpa tanda kutip) untuk mengkonfirmasi penghapusan semua transaksi:');
+                if (safetyInput !== 'HAPUS') {
+                    alert('Penghapusan dibatalkan. Anda harus mengetik "HAPUS" untuk mengkonfirmasi.');
+                    return;
+                }
+                
+                // Show loading state
+                deleteAllTransactionsBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Menghapus...';
+                deleteAllTransactionsBtn.disabled = true;
+                
+                // Get all transaction IDs
+                const transactionIds = [];
+                transactionRows.forEach(row => {
+                    const deleteBtn = row.querySelector('.delete-transaction');
+                    if (deleteBtn) {
+                        transactionIds.push(deleteBtn.getAttribute('data-transaction-id'));
+                    }
+                });
+                
+                // Send bulk delete request
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                
+                fetch('/transaction-history/bulk-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        transaction_ids: transactionIds
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ Berhasil menghapus ${data.deleted_count} transaksi!`);
+                        window.location.reload();
+                    } else {
+                        alert('❌ Error: ' + (data.message || 'Gagal menghapus transaksi'));
+                        resetDeleteAllTransactionsButton();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Terjadi kesalahan saat menghapus transaksi: ' + error.message);
+                    resetDeleteAllTransactionsButton();
+                });
+            });
+        }
+    });
+    
+    function resetDeleteAllTransactionsButton() {
+        const deleteAllTransactionsBtn = document.getElementById('deleteAllTransactions');
+        if (deleteAllTransactionsBtn) {
+            deleteAllTransactionsBtn.innerHTML = '<i class="fas fa-trash-alt me-1"></i> Delete All Transactions';
+            deleteAllTransactionsBtn.disabled = false;
+        }
+    }
 
     // Fix cashier data function
     function fixCashierData() {
@@ -356,7 +520,5 @@
             button.disabled = false;
         });
     }
-
-
 </script>
 @endpush

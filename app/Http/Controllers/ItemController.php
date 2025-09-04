@@ -174,33 +174,6 @@ class ItemController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Item $item)
-    {
-        try {
-            // Delete related barcodes first
-            $item->barcodes()->delete();
-            
-            // Delete related stock in details
-            $item->stockInDetails()->delete();
-            
-            // Delete related sale details
-            $item->saleDetails()->delete();
-            
-            // Delete related stock adjustments
-            $item->stockAdjustments()->delete();
-            
-            // Now delete the item
-            $item->delete();
-
-            return redirect()->route('items.index')->with('success', 'Item deleted successfully.');
-        } catch (\Exception $e) {
-            return redirect()->route('items.index')->with('error', 'Failed to delete item: ' . $e->getMessage());
-        }
-    }
-
-    /**
      * Show the import form
      */
     public function showImport()
@@ -641,77 +614,5 @@ class ItemController extends Controller
         }
         
         return $finalCode;
-    }
-
-
-
-    /**
-     * Bulk delete items
-     */
-    public function bulkDelete(Request $request)
-    {
-        try {
-            $request->validate([
-                'item_ids' => 'required|array',
-                'item_ids.*' => 'integer|exists:items,id'
-            ]);
-
-            $itemIds = $request->input('item_ids');
-            $deletedCount = 0;
-            $errors = [];
-
-            foreach ($itemIds as $itemId) {
-                try {
-                    $item = Item::find($itemId);
-                    
-                    if ($item) {
-                        // Delete related barcodes first
-                        $item->barcodes()->delete();
-                        
-                        // Delete related stock in details
-                        $item->stockInDetails()->delete();
-                        
-                        // Delete related sale details
-                        $item->saleDetails()->delete();
-                        
-                        // Delete related stock adjustments
-                        $item->stockAdjustments()->delete();
-                        
-                        // Now delete the item
-                        $item->delete();
-                        $deletedCount++;
-                    } else {
-                        $errors[] = "Item with ID {$itemId} not found.";
-                    }
-                } catch (\Exception $e) {
-                    $errors[] = "Failed to delete item ID {$itemId}: " . $e->getMessage();
-                }
-            }
-
-            if ($deletedCount > 0) {
-                $message = "Successfully deleted {$deletedCount} item(s).";
-                if (!empty($errors)) {
-                    $message .= " " . count($errors) . " item(s) could not be deleted.";
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => $message,
-                    'deleted_count' => $deletedCount,
-                    'errors' => $errors
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No items were deleted. ' . implode(' ', $errors)
-                ]);
-            }
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error processing bulk delete: ' . $e->getMessage()
-            ]);
-        }
     }
 }

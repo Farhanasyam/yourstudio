@@ -28,13 +28,22 @@
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Items</p>
-                                <h5 class="font-weight-bolder">{{ number_format($totalItems) }}</h5>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Today's Sales</p>
+                                <h5 class="font-weight-bolder">Rp {{ number_format($todaySales) }}</h5>
+                                <p class="mb-0 text-sm">
+                                    @if($salesGrowth > 0)
+                                        <span class="text-success text-sm font-weight-bolder">+{{ number_format($salesGrowth, 1) }}%</span> vs yesterday
+                                    @elseif($salesGrowth < 0)
+                                        <span class="text-danger text-sm font-weight-bolder">{{ number_format($salesGrowth, 1) }}%</span> vs yesterday
+                                    @else
+                                        <span class="text-secondary text-sm font-weight-bolder">0%</span> vs yesterday
+                                    @endif
+                                </p>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-primary shadow-primary text-center rounded-circle">
-                                <i class="ni ni-money-coins text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-coins text-lg opacity-10" aria-hidden="true"></i>
                             </div>
                         </div>
                     </div>
@@ -47,13 +56,16 @@
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Categories</p>
-                                <h5 class="font-weight-bolder">{{ number_format($totalCategories) }}</h5>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Items</p>
+                                <h5 class="font-weight-bolder">{{ number_format($totalItems) }}</h5>
+                                <p class="mb-0 text-sm">
+                                    <span class="text-warning text-sm font-weight-bolder">{{ $lowStockItems->count() }}</span> low stock items
+                                </p>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-success shadow-success text-center rounded-circle">
-                                <i class="ni ni-paper-diploma text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-boxes text-lg opacity-10" aria-hidden="true"></i>
                             </div>
                         </div>
                     </div>
@@ -66,13 +78,16 @@
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Suppliers</p>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Active Suppliers</p>
                                 <h5 class="font-weight-bolder">{{ number_format($totalSuppliers) }}</h5>
+                                <p class="mb-0 text-sm">
+                                    <span class="text-success text-sm font-weight-bolder">{{ $recentStockIns->count() }}</span> recent deliveries
+                                </p>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-warning shadow-warning text-center rounded-circle">
-                                <i class="ni ni-cart text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-truck text-lg opacity-10" aria-hidden="true"></i>
                             </div>
                         </div>
                     </div>
@@ -85,16 +100,117 @@
                     <div class="row">
                         <div class="col-8">
                             <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Users</p>
+                                <p class="text-sm mb-0 text-uppercase font-weight-bold">System Users</p>
                                 <h5 class="font-weight-bolder">{{ number_format($totalUsers) }}</h5>
+                                <p class="mb-0 text-sm">
+                                    <span class="text-info text-sm font-weight-bolder">{{ $pendingUsers->count() }}</span> pending approvals
+                                </p>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-info shadow-info text-center rounded-circle">
-                                <i class="ni ni-world text-lg opacity-10" aria-hidden="true"></i>
+                                <i class="fas fa-users text-lg opacity-10" aria-hidden="true"></i>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Quick Actions</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{{ route('sales.create') }}" class="btn btn-primary w-100 mb-2">
+                                <i class="fas fa-cart-plus me-2"></i> New Sale
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ route('stock-in.create') }}" class="btn btn-success w-100 mb-2">
+                                <i class="fas fa-box me-2"></i> Stock In
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ route('items.create') }}" class="btn btn-info w-100 mb-2">
+                                <i class="fas fa-plus-circle me-2"></i> Add Item
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ route('reports.index') }}" class="btn btn-warning w-100 mb-2">
+                                <i class="fas fa-chart-line me-2"></i> View Reports
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Business Overview</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-gradient-info">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-white text-uppercase font-weight-bold">Total Items</p>
+                                                <h5 class="font-weight-bolder text-white">{{ number_format($totalItems) }}</h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                                <i class="ni ni-box-2 text-lg text-info opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-gradient-warning">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-white text-uppercase font-weight-bold">Total Categories</p>
+                                                <h5 class="font-weight-bolder text-white">{{ number_format($totalCategories) }}</h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                                <i class="ni ni-tag text-lg text-warning opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header pb-0">
+                    <h6>Items by Category</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="itemsByCategoryChart" height="300"></canvas>
                 </div>
             </div>
         </div>
@@ -128,7 +244,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ $sale->user->name ?? 'N/A' }}</p>
+                                        <p class="text-xs font-weight-bold mb-0">{{ $sale->cashier->name ?? 'N/A' }}</p>
                                     </td>
                                     <td>
                                         <p class="text-xs font-weight-bold mb-0">Rp {{ number_format($sale->total_amount) }}</p>
@@ -251,49 +367,6 @@
             </div>
         </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="card">
-                <div class="card-header pb-0">
-                    <h6>Top Selling Items This Month</h6>
-                </div>
-                <div class="card-body p-3">
-                    <div class="table-responsive">
-                        <table class="table align-items-center mb-0">
-                <thead>
-                    <tr>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Item Name</th>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Category</th>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Quantity Sold</th>
-                    </tr>
-                </thead>
-                <tbody>
-                                @forelse($topSellingItems as $item)
-                                <tr>
-                                    <td>
-                                        <div class="d-flex px-2 py-1">
-                                            <div class="d-flex flex-column justify-content-center">
-                                                <h6 class="mb-0 text-sm">{{ $item->item->name ?? 'N/A' }}</h6>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ $item->item->category->name ?? 'N/A' }}</p>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ $item->total_sold }}</p>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="3" class="text-center">No sales data found</td>
-                    </tr>
-                                @endforelse
-                </tbody>
-            </table>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="row">
@@ -349,3 +422,38 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Items by Category Chart
+    const itemsByCategoryCtx = document.getElementById('itemsByCategoryChart').getContext('2d');
+    new Chart(itemsByCategoryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {!! json_encode($itemsByCategory->pluck('name')) !!},
+            datasets: [{
+                data: {{ json_encode($itemsByCategory->pluck('items_count')) }},
+                backgroundColor: [
+                    '#5e72e4', '#2dce89', '#fb6340', '#11cdef', '#f5365c',
+                    '#8965e0', '#ffd600', '#8b9dc3', '#ddb892', '#7f5539'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+});
+</script>
+@endpush

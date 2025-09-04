@@ -164,28 +164,24 @@
 @section('scripts')
 <script>
 document.getElementById('excel_file').addEventListener('change', function(e) {
-    const file = e.target.files[0];
+    const fileInput = document.getElementById('excel_file');
     const importBtn = document.getElementById('importBtn');
     
-    if (file) {
-        // Check file size (10MB = 10 * 1024 * 1024 bytes)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('File size exceeds 10MB limit. Please choose a smaller file.');
-            e.target.value = '';
+    if (fileInput.files[0]) {
+        if (fileInput.files[0].size > 10 * 1024 * 1024) {
+            showWarningAlert('File size exceeds 10MB limit. Please choose a smaller file.');
+            fileInput.value = '';
             return;
         }
         
-        // Check file extension
-        const allowedExtensions = ['xlsx', 'xls', 'csv'];
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        
-        if (!allowedExtensions.includes(fileExtension)) {
-            alert('Invalid file format. Please select an Excel file (.xlsx, .xls) or CSV file (.csv).');
-            e.target.value = '';
+        const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
+        if (!allowedTypes.includes(fileInput.files[0].type)) {
+            showWarningAlert('Invalid file format. Please select an Excel file (.xlsx, .xls) or CSV file (.csv).');
+            fileInput.value = '';
             return;
         }
         
-        importBtn.innerHTML = '<i class="fas fa-upload"></i> Import ' + file.name;
+        importBtn.innerHTML = '<i class="fas fa-upload"></i> Import ' + fileInput.files[0].name;
     } else {
         importBtn.innerHTML = '<i class="fas fa-upload"></i> Import Items';
     }

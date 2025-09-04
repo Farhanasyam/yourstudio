@@ -15,21 +15,8 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->check()) {
-            return redirect()->route('login')->with('error', 'Anda harus login terlebih dahulu.');
-        }
-
-        $user = auth()->user();
-
-        // Check if user can login (approved and active)
-        if (!$user->canLogin()) {
-            auth()->logout();
-            return redirect()->route('login')->with('error', 'Akun Anda tidak aktif atau belum disetujui.');
-        }
-
-        // Check if user is admin or superadmin
-        if (!$user->canManageItems()) {
-            abort(403, 'Akses ditolak. Hanya Admin dan Super Admin yang dapat mengakses fitur ini.');
+        if (!auth()->check() || (!auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin())) {
+            return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
         return $next($request);

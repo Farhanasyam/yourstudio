@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use App\Notifications\UserApprovedNotification;
+use App\Notifications\UserRejectedNotification;
+use App\Notifications\NewUserRegistrationNotification;
 
 class UserManagementController extends Controller
 {
@@ -80,7 +83,15 @@ class UserManagementController extends Controller
             $validated['approved_by'] = Auth::id();
         }
 
-        User::create($validated);
+        $user = User::create($validated);
+
+        // Kirim notifikasi ke super admin jika user pending
+        if ($validated['approval_status'] === 'pending') {
+            $superAdmins = User::where('role', 'superadmin')->get();
+            foreach ($superAdmins as $superAdmin) {
+                $superAdmin->notify(new NewUserRegistrationNotification($user));
+            }
+        }
 
         return redirect()->route('user-management.index')
                         ->with('success', 'User berhasil dibuat.');
@@ -188,6 +199,9 @@ class UserManagementController extends Controller
             'is_active' => true,
         ]);
 
+        // Kirim notifikasi ke user yang disetujui
+        $user->notify(new UserApprovedNotification($user, Auth::user()));
+
         return redirect()->back()
                         ->with('success', 'User berhasil disetujui.');
     }
@@ -207,6 +221,9 @@ class UserManagementController extends Controller
             'approved_by' => null,
             'is_active' => false,
         ]);
+
+        // Kirim notifikasi ke user yang ditolak
+        $user->notify(new UserRejectedNotification($user, Auth::user()));
 
         return redirect()->back()
                         ->with('success', 'User berhasil ditolak.');
