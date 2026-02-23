@@ -258,8 +258,9 @@
         }
         
         .items-header div {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 10px;
             align-items: center;
         }
 
@@ -286,24 +287,36 @@
         }
         
         .item-line {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 10px;
             align-items: center;
         }
         
         .item-name {
-            flex: 1;
-            padding-right: 15px;
             font-weight: 500;
             color: #2d3748;
             font-size: 12px;
         }
         
+        .item-qty {
+            text-align: center;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 12px;
+        }
+        
         .item-price {
-            min-width: 80px;
             text-align: right;
             font-weight: 600;
             color: #667eea;
+            font-size: 12px;
+        }
+        
+        .item-total {
+            text-align: right;
+            font-weight: 600;
+            color: #2d3748;
             font-size: 12px;
         }
         
@@ -604,7 +617,7 @@
                     <div class="info-icon"><i class="far fa-calendar"></i></div>
                     <span class="info-label">Tanggal</span>
                     <span class="info-colon">:</span>
-                    <span class="info-value">{{ $transaction->transaction_date->format('d-m-Y H:i') }}</span>
+                    <span class="info-value">{{ $transaction->transaction_date->setTimezone('Asia/Jakarta')->format('d-m-Y H:i') }} WIB</span>
                 </div>
                 <div class="info-line">
                     <div class="info-icon"><i class="fas fa-receipt"></i></div>
@@ -624,7 +637,9 @@
             <div class="items-header">
                 <div>
                     <span><i class="fas fa-shopping-bag"></i>Barang</span>
-                    <span>Harga</span>
+                    <span>Qty</span>
+                    <span>Harga/Item</span>
+                    <span>Total</span>
                 </div>
             </div>
 
@@ -634,7 +649,9 @@
                 <div class="item">
                     <div class="item-line">
                         <span class="item-name">{{ $item->item_name }}</span>
-                        <span class="item-price">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
+                        <span class="item-qty">{{ $item->quantity }}</span>
+                        <span class="item-price">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</span>
+                        <span class="item-total">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
                     </div>
                 </div>
                 @endforeach
@@ -674,7 +691,7 @@
                 </div>
                 <div class="date-time">
                     <i class="far fa-clock"></i>
-                    Dicetak pada {{ now()->format('d-m-Y H:i:s') }}
+                    Dicetak pada {{ now()->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s') }} WIB
                 </div>
             </div>
             

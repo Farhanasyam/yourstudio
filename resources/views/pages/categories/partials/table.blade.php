@@ -34,7 +34,7 @@
                         <span class="badge badge-sm bg-gradient-info">{{ $category->items_count }}</span>
                     </td>
                     <td class="align-middle text-center">
-                        <span class="text-secondary text-xs font-weight-bold">{{ $category->created_at->format('d/m/Y') }}</span>
+                        <span class="text-secondary text-xs font-weight-bold">{{ $category->created_at->setTimezone('Asia/Jakarta')->format('d/m/Y') }}</span>
                     </td>
                     <td class="align-middle">
                         <div class="btn-group" role="group">

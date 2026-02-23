@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Carbon\Carbon;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Set locale to Indonesian for better date formatting
+        Carbon::setLocale('id');
+        
+        // Set application locale to Indonesian
+        config(['app.locale' => 'id']);
     }
 }

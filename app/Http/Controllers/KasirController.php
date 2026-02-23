@@ -15,6 +15,7 @@ use App\Notifications\LowStockNotification;
 use App\Notifications\NewTransactionNotification;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class KasirController extends Controller
 {
@@ -27,7 +28,7 @@ class KasirController extends Controller
     }
 
     /**
-     * API: Search item by barcode
+     * API: Search item by barcode (optimized for online kasir: cache + minimal columns)
      */
     public function searchByBarcode(Request $request)
     {
@@ -37,108 +38,71 @@ class KasirController extends Controller
             ]);
 
             $barcode = trim($request->barcode);
-            
-            // Log untuk debugging
-            Log::info('Searching barcode:', [
-                'barcode' => $barcode,
-                'request_data' => $request->all(),
-                'headers' => $request->headers->all()
-            ]);
-            
-            // Cari di tabel items terlebih dahulu (lebih cepat)
-            $item = Item::where('barcode', $barcode)
-                       ->where('is_active', true)
-                       ->with('category')
-                       ->first();
+            $cacheKey = 'kasir_barcode_' . $barcode;
 
-            // Log hasil pencarian di items
-            Log::info('Item search result:', [
-                'barcode' => $barcode,
-                'found_in_items' => $item ? true : false,
-                'item_data' => $item ? $item->toArray() : null
-            ]);
+            // Cache 45 detik agar scan berulang/online tidak selalu hit DB
+            $responseData = Cache::remember($cacheKey, 45, function () use ($barcode) {
+                $item = Item::where('barcode', $barcode)
+                    ->where('is_active', true)
+                    ->select(['id', 'name', 'barcode', 'selling_price', 'stock_quantity', 'category_id'])
+                    ->with('category:id,name')
+                    ->first();
 
-            if (!$item) {
-                // Jika tidak ditemukan di items, cari di barcodes
-                $barcodeRecord = Barcode::where('barcode_value', $barcode)
-                                      ->where('is_active', true)
-                                      ->first();
+                if (!$item) {
+                    $barcodeRecord = Barcode::where('barcode_value', $barcode)
+                        ->where('is_active', true)
+                        ->select('item_id')
+                        ->first();
 
-                // Log hasil pencarian di barcodes
-                Log::info('Barcode search result:', [
-                    'barcode' => $barcode,
-                    'found_in_barcodes' => $barcodeRecord ? true : false,
-                    'barcode_data' => $barcodeRecord ? $barcodeRecord->toArray() : null
-                ]);
-
-                if ($barcodeRecord) {
-                    $item = Item::where('id', $barcodeRecord->item_id)
-                               ->where('is_active', true)
-                               ->with('category')
-                               ->first();
-
-                    // Log hasil pencarian item dari barcode
-                    Log::info('Item from barcode search result:', [
-                        'barcode' => $barcode,
-                        'item_found' => $item ? true : false,
-                        'item_data' => $item ? $item->toArray() : null
-                    ]);
+                    if ($barcodeRecord) {
+                        $item = Item::where('id', $barcodeRecord->item_id)
+                            ->where('is_active', true)
+                            ->select(['id', 'name', 'barcode', 'selling_price', 'stock_quantity', 'category_id'])
+                            ->with('category:id,name')
+                            ->first();
+                    }
                 }
-            }
-            
-            Log::info('Search result:', [
-                'barcode' => $barcode,
-                'item_found' => $item ? true : false,
-                'item_data' => $item ? $item->toArray() : null
-            ]);
 
-            if ($item) {
-                // Check stock
-                if ($item->stock_quantity <= 0) {
-                    Log::warning('Item found but out of stock:', [
-                        'item_id' => $item->id,
-                        'stock' => $item->stock_quantity
-                    ]);
-                    
+                if (!$item) {
+                    return null;
+                }
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'barcode' => $item->barcode ?? $barcode,
+                    'selling_price' => (float) $item->selling_price,
+                    'stock_quantity' => (int) $item->stock_quantity,
+                    'category' => $item->category ? $item->category->name : 'General',
+                ];
+            });
+
+            if ($responseData !== null) {
+                if ($responseData['stock_quantity'] <= 0) {
+                    Cache::forget($cacheKey);
                     return response()->json([
                         'success' => false,
                         'message' => 'Stok produk habis',
                         'type' => 'error'
                     ]);
                 }
-
-                // Prepare response data
-                $responseData = [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'barcode' => $barcode,
-                    'selling_price' => $item->selling_price,
-                    'stock_quantity' => $item->stock_quantity,
-                    'category' => $item->category ? $item->category->name : 'General'
-                ];
-
-                Log::info('Returning item data:', $responseData);
-
                 return response()->json([
                     'success' => true,
                     'data' => $responseData,
                     'message' => 'Produk ditemukan'
                 ]);
-            } else {
-                Log::info('Item not found for barcode:', ['barcode' => $barcode]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Produk tidak ditemukan! Pastikan barcode terdaftar dan produk aktif.',
-                    'type' => 'error'
-                ]);
             }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk tidak ditemukan! Pastikan barcode terdaftar dan produk aktif.',
+                'type' => 'error'
+            ]);
         } catch (\Exception $e) {
             Log::error('Error in searchByBarcode:', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat mencari produk: ' . $e->getMessage(),
@@ -148,24 +112,17 @@ class KasirController extends Controller
     }
 
     /**
-     * Store transaction
+     * Store transaction (optimized: 1x load items, batch stock update, invalidate barcode cache)
      */
     public function store(Request $request)
     {
         try {
-            Log::info('=== START TRANSACTION STORE ===');
-            Log::info('Request data:', $request->all());
-            Log::info('Request headers:', $request->headers->all());
-            
-            // Handle JSON input
             if ($request->isJson()) {
                 $data = $request->json()->all();
                 $request->merge($data);
             }
-            
-            // Basic validation
+
             if (!$request->has('items') || empty($request->items)) {
-                Log::warning('Items validation failed: items empty or missing');
                 return response()->json([
                     'success' => false,
                     'message' => 'Items tidak boleh kosong'
@@ -173,28 +130,19 @@ class KasirController extends Controller
             }
 
             if (!$request->has('total_amount') || $request->total_amount <= 0) {
-                Log::warning('Total amount validation failed:', ['total_amount' => $request->total_amount]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Total amount tidak valid'
                 ], 400);
             }
 
-            Log::info('Validation passed, starting database transaction');
-
             DB::beginTransaction();
 
             try {
-                // Convert payment method to match enum
-                $paymentMethod = $this->convertPaymentMethod($request->payment_method);
-                Log::info('Payment method converted:', ['original' => $request->payment_method, 'converted' => $paymentMethod]);
-                
-                // Generate simple transaction code
+                $paymentMethod = $this->convertPaymentMethod($request->payment_method ?? 'cash');
                 $transactionCode = 'TRX-' . date('YmdHis') . '-' . rand(1000, 9999);
-                Log::info('Generated transaction code:', ['code' => $transactionCode]);
 
-                // Prepare transaction data
-                $transactionData = [
+                $transaction = Transaction::create([
                     'transaction_code' => $transactionCode,
                     'transaction_date' => now(),
                     'subtotal' => $request->total_amount,
@@ -206,20 +154,14 @@ class KasirController extends Controller
                     'payment_method' => $paymentMethod,
                     'cashier_id' => Auth::id(),
                     'status' => 'completed'
-                ];
+                ]);
 
-                Log::info('Transaction data prepared:', $transactionData);
+                $itemIds = array_column($request->items, 'id');
+                $items = Item::whereIn('id', $itemIds)->get(['id', 'barcode'])->keyBy('id');
+                $barcodesByItem = Barcode::whereIn('item_id', $itemIds)->where('is_active', true)->get(['item_id', 'barcode_value'])->groupBy('item_id');
 
-                // Create transaction with minimal fields
-                $transaction = Transaction::create($transactionData);
-
-                Log::info('Transaction created successfully:', $transaction->toArray());
-
-                // Create transaction items
-                foreach ($request->items as $index => $itemData) {
-                    Log::info("Creating transaction item {$index}:", $itemData);
-                    
-                    $transactionItemData = [
+                foreach ($request->items as $itemData) {
+                    TransactionItem::create([
                         'transaction_id' => $transaction->id,
                         'item_id' => $itemData['id'],
                         'item_name' => $itemData['name'],
@@ -229,45 +171,21 @@ class KasirController extends Controller
                         'unit_price' => $itemData['price'],
                         'discount_per_item' => 0,
                         'subtotal' => $itemData['subtotal']
-                    ];
+                    ]);
 
-                    Log::info("Transaction item data for item {$index}:", $transactionItemData);
-
-                    $transactionItem = TransactionItem::create($transactionItemData);
-                    Log::info("Transaction item {$index} created:", $transactionItem->toArray());
-
-                    // Update stock safely
-                    try {
-                        $item = Item::find($itemData['id']);
-                        if ($item) {
-                            $oldStock = $item->stock_quantity;
-                            $newStock = max(0, $oldStock - $itemData['quantity']);
-                            $item->update(['stock_quantity' => $newStock]);
-                            Log::info('Stock updated for item:', [
-                                'item_id' => $item->id,
-                                'old_stock' => $oldStock,
-                                'new_stock' => $newStock,
-                                'quantity_sold' => $itemData['quantity']
-                            ]);
-                        } else {
-                            Log::warning('Item not found for stock update:', ['item_id' => $itemData['id']]);
+                    $item = $items->get($itemData['id']);
+                    if ($item) {
+                        $item->decrement('stock_quantity', (int) $itemData['quantity']);
+                        if ($item->barcode) {
+                            Cache::forget('kasir_barcode_' . $item->barcode);
                         }
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to update stock:', [
-                            'item_id' => $itemData['id'],
-                            'error' => $e->getMessage()
-                        ]);
-                        // Continue with transaction even if stock update fails
+                        foreach ($barcodesByItem->get($item->id, []) as $b) {
+                            Cache::forget('kasir_barcode_' . $b->barcode_value);
+                        }
                     }
                 }
 
-                Log::info('All transaction items created, committing transaction');
                 DB::commit();
-
-                Log::info('Transaction stored successfully:', [
-                    'transaction_id' => $transaction->id,
-                    'transaction_code' => $transaction->transaction_code
-                ]);
 
                 return response()->json([
                     'success' => true,
@@ -277,34 +195,24 @@ class KasirController extends Controller
                 ]);
 
             } catch (\Exception $e) {
-                Log::error('Error in transaction creation:', [
+                DB::rollback();
+                Log::error('Transaction store error:', [
                     'message' => $e->getMessage(),
                     'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
+                    'line' => $e->getLine()
                 ]);
-                DB::rollback();
                 throw $e;
             }
 
         } catch (\Exception $e) {
-            Log::error('=== ERROR IN TRANSACTION STORE ===');
-            Log::error('Error details:', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan transaksi: ' . $e->getMessage(),
-                'debug_info' => [
+                'debug_info' => config('app.debug') ? [
                     'error' => $e->getMessage(),
                     'file' => $e->getFile(),
                     'line' => $e->getLine()
-                ]
+                ] : null
             ], 500);
         }
     }
@@ -448,10 +356,11 @@ class KasirController extends Controller
 public function receipt(Transaction $transaction, Request $request)
     {
         try {
-            // Load transaction with its items and cashier
-            $transaction->load(['transactionItems.item', 'cashier']);
-            
-            // Get system settings for receipt
+            $transaction->load([
+                'transactionItems:id,transaction_id,item_name,quantity,unit_price,subtotal',
+                'cashier:id,name'
+            ]);
+
             $systemSettings = \App\Models\SystemSetting::pluck('value', 'key')->toArray();
             
             // Check if this is a copy request

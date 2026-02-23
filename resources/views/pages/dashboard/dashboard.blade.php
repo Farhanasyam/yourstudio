@@ -250,7 +250,7 @@
                                         <p class="text-xs font-weight-bold mb-0">Rp {{ number_format($sale->total_amount) }}</p>
                                     </td>
                                     <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ $sale->created_at->format('d/m/Y') }}</p>
+                                        <p class="text-xs font-weight-bold mb-0">{{ $sale->created_at->setTimezone('Asia/Jakarta')->format('d/m/Y') }}</p>
                                     </td>
                                 </tr>
                                 @empty
@@ -352,7 +352,7 @@
                                         <p class="text-xs font-weight-bold mb-0">Rp {{ number_format($stockIn->total_amount) }}</p>
                                     </td>
                                     <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{ $stockIn->created_at->format('d/m/Y') }}</p>
+                                        <p class="text-xs font-weight-bold mb-0">{{ $stockIn->created_at->setTimezone('Asia/Jakarta')->format('d/m/Y') }}</p>
                                     </td>
                                 </tr>
                                 @empty

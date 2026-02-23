@@ -104,13 +104,13 @@
                                             <td class="align-middle text-center">
                                                 @if($user->approvedBy)
                                                     <span class="text-xs">{{ $user->approvedBy->name }}</span>
-                                                    <br><small class="text-xs text-secondary">{{ $user->approved_at?->format('d/m/Y H:i') }}</small>
+                                                    <br><small class="text-xs text-secondary">{{ $user->approved_at?->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</small>
                                                 @else
                                                     <span class="text-xs text-secondary">-</span>
                                                 @endif
                                             </td>
                                             <td class="align-middle text-center">
-                                                <span class="text-xs">{{ $user->created_at->format('d/m/Y') }}</span>
+                                                <span class="text-xs">{{ $user->created_at->setTimezone('Asia/Jakarta')->format('d/m/Y') }}</span>
                                             </td>
                                             <td class="align-middle">
                                                 <div class="dropdown">

@@ -210,6 +210,17 @@
 <script>
 // Cart management
 let cart = {};
+// Client cache barcode -> product (2 detik) agar scan online lebih cepat
+let barcodeCache = {};
+const BARCODE_CACHE_TTL_MS = 2000;
+function getCachedBarcode(barcode) {
+    const entry = barcodeCache[barcode];
+    if (entry && (Date.now() - entry.at) < BARCODE_CACHE_TTL_MS) return entry.data;
+    return null;
+}
+function setCachedBarcode(barcode, data) {
+    barcodeCache[barcode] = { data: data, at: Date.now() };
+}
 
 // Update cart display
 function updateCart() {
@@ -391,22 +402,22 @@ function showAlert(message, type = 'success') {
     });
 }
 
-// Scan barcode function
+// Scan barcode function (pakai cache client 2 detik agar online lebih cepat)
 function scanBarcode(barcode) {
     if (!barcode || barcode.length === 0) {
         showAlert('Barcode tidak boleh kosong', 'error');
         return;
     }
-
-    // Get CSRF token
+    const cached = getCachedBarcode(barcode);
+    if (cached) {
+        addToCart(cached);
+        return;
+    }
     const token = document.querySelector('meta[name="csrf-token"]');
     if (!token) {
-        console.error('CSRF token not found');
         showAlert('CSRF token tidak ditemukan', 'error');
         return;
     }
-    
-    // Send request to server
     fetch('/kasir/search-barcode', {
         method: 'POST',
         headers: {
@@ -417,20 +428,18 @@ function scanBarcode(barcode) {
         body: JSON.stringify({ barcode: barcode })
     })
     .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     })
     .then(data => {
         if (data.success && data.data) {
+            setCachedBarcode(barcode, data.data);
             addToCart(data.data);
         } else {
             showAlert(data.message || 'Produk tidak ditemukan', 'error');
         }
     })
     .catch(error => {
-        console.error('Request failed:', error);
         showAlert('Gagal memproses barcode: ' + error.message, 'error');
     });
 }
@@ -646,10 +655,19 @@ function processPayment() {
     });
 }
 
+// Prevent double submit
+let paymentInProgress = false;
+
 // Process payment transaction
 function processPaymentTransaction(total, paid, change) {
-    console.log('Processing transaction:', { total, paid, change });
-    
+    if (paymentInProgress) return;
+    paymentInProgress = true;
+    const btn = document.getElementById('processPaymentBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Memproses...';
+    }
+
     // Get cart items for transaction
     const items = [];
     for (let barcode in cart) {
@@ -663,8 +681,8 @@ function processPaymentTransaction(total, paid, change) {
         });
     }
     
-    // Get payment method
-    const paymentMethod = document.querySelector('select[name="payment_method"]')?.value || 'Tunai';
+    const paymentMethodSelect = document.getElementById('paymentMethod');
+    const paymentMethod = (paymentMethodSelect && paymentMethodSelect.value) ? paymentMethodSelect.value : 'cash';
     
     // Prepare transaction data
     const transactionData = {
@@ -678,7 +696,6 @@ function processPaymentTransaction(total, paid, change) {
     
     console.log('Sending transaction data:', transactionData);
     
-    // Send transaction to server
     fetch('/kasir/transaction', {
         method: 'POST',
         headers: {
@@ -689,16 +706,11 @@ function processPaymentTransaction(total, paid, change) {
         body: JSON.stringify(transactionData)
     })
     .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     })
     .then(data => {
         if (data.success) {
-            console.log('Transaction successful:', data);
-            
-            // Show success message
             Swal.fire({
                 title: 'Pembayaran Berhasil!',
                 text: 'Transaksi telah diproses. Mencetak struk...',
@@ -706,15 +718,17 @@ function processPaymentTransaction(total, paid, change) {
                 showConfirmButton: false,
                 timer: 2000
             }).then(() => {
-                // Redirect to receipt page
                 window.location.href = `/kasir/receipt/${data.transaction_id}`;
             });
         } else {
+            paymentInProgress = false;
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Proses Pembayaran'; }
             showAlert(data.message || 'Gagal memproses transaksi', 'error');
         }
     })
     .catch(error => {
-        console.error('Transaction failed:', error);
+        paymentInProgress = false;
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Proses Pembayaran'; }
         showAlert('Gagal memproses transaksi: ' + error.message, 'error');
     });
 }
