@@ -72,8 +72,11 @@
                     <td colspan="7" class="text-center py-4">
                         <div class="d-flex flex-column align-items-center">
                             <i class="ni ni-box-2 text-secondary opacity-10" style="font-size: 3rem;"></i>
-                            <p class="text-secondary mt-2">No items found</p>
-                            @if(!request('search') && !request()->except(['page', 'search']))
+                            <p class="text-secondary mt-2 mb-1">No items found</p>
+                            @php $hasFilters = request()->hasAny(['category_id', 'supplier_id', 'stock_status', 'is_active', 'price_min', 'price_max']) && array_filter(request()->only(['category_id', 'supplier_id', 'stock_status', 'is_active', 'price_min', 'price_max'])); @endphp
+                            @if($hasFilters)
+                                <p class="text-xs text-muted mb-2">Tidak ada item yang cocok dengan filter. Coba ubah <strong>Status: All Status</strong> atau klik <strong>Clear All</strong>.</p>
+                            @elseif(!request('search'))
                                 <a href="{{ route('items.create') }}" class="btn btn-primary btn-sm">
                                     <i class="fas fa-plus"></i> Create First Item
                                 </a>

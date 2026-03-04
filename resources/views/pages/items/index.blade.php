@@ -80,13 +80,9 @@
                         @include('pages.items.partials.table')
                     </div>
                     
-                    @if($items->hasPages())
-                        <div class="card-footer">
-                            <div class="d-flex justify-content-center">
-                                {{ $items->appends(request()->query())->links() }}
-                            </div>
-                        </div>
-                    @endif
+                    <div class="card-footer" id="itemsPaginationFooter">
+                        @include('pages.items.partials.pagination-footer')
+                    </div>
                 </div>
             </div>
         </div>

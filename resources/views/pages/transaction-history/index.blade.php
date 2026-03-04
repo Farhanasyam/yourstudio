@@ -315,7 +315,7 @@
     </div>
 @endsection
 
-@push('js')
+@push('scripts')
 <script>
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -326,53 +326,51 @@
     // Delete individual transaction
     document.addEventListener('click', function(e) {
         if (e.target.closest('.delete-transaction')) {
+            e.preventDefault();
             const button = e.target.closest('.delete-transaction');
             const transactionId = button.getAttribute('data-transaction-id');
             const transactionCode = button.getAttribute('data-transaction-code');
             
-            if (confirm(`Apakah Anda yakin ingin menghapus transaksi "${transactionCode}"?\n\nTindakan ini akan menghapus:\n• Transaksi\n• Item transaksi\n• Data terkait\n\nTindakan ini tidak dapat dibatalkan!`)) {
-                // Show loading state
+            Swal.fire({
+                title: 'Hapus Transaksi?',
+                html: 'Apakah Anda yakin ingin menghapus transaksi <strong>"' + transactionCode + '"</strong>?<br><br>Tindakan ini akan menghapus:<br>• Transaksi<br>• Item transaksi<br>• Data terkait<br><br><span class="text-danger">Tindakan ini tidak dapat dibatalkan!</span>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Hapus',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
                 button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 button.disabled = true;
-                
-                // Send delete request
-                fetch(`/transaction-history/${transactionId}`, {
+                fetch('/transaction-history/' + transactionId, {
                     method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     }
                 })
-                .then(response => {
+                .then(function(response) {
                     if (response.ok) {
-                        // Remove the row from the table
                         button.closest('tr').remove();
-                        alert(`Transaksi "${transactionCode}" berhasil dihapus!`);
-                        
-                        // Check if table is empty
-                        const tbody = document.querySelector('tbody');
-                        if (tbody.children.length === 0) {
-                            tbody.innerHTML = `
-                                <tr>
-                                    <td colspan="8" class="text-center py-4">
-                                        <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-                                        <p class="text-muted">Tidak ada transaksi ditemukan</p>
-                                    </td>
-                                </tr>
-                            `;
+                        Swal.fire({ title: 'Berhasil', text: 'Transaksi "' + transactionCode + '" berhasil dihapus!', icon: 'success', confirmButtonColor: '#3085d6' });
+                        var tbody = document.querySelector('tbody');
+                        if (tbody && tbody.children.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><i class="fas fa-receipt fa-3x text-muted mb-3"></i><p class="text-muted">Tidak ada transaksi ditemukan</p></td></tr>';
                         }
                     } else {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error('HTTP error! status: ' + response.status);
                     }
                 })
-                .catch(error => {
+                .catch(function(error) {
                     console.error('Error:', error);
-                    alert('Terjadi kesalahan saat menghapus transaksi');
-                    // Restore button
+                    Swal.fire({ title: 'Error', text: 'Terjadi kesalahan saat menghapus transaksi', icon: 'error', confirmButtonColor: '#3085d6' });
                     button.innerHTML = '<i class="fas fa-trash"></i>';
                     button.disabled = false;
                 });
-            }
+            });
         }
     });
 
@@ -383,91 +381,95 @@
         if (deleteAllTransactionsBtn) {
             deleteAllTransactionsBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                
-                // Get all transaction rows
                 const transactionRows = document.querySelectorAll('tbody tr');
                 const totalTransactions = transactionRows.length;
                 
                 if (totalTransactions === 0) {
-                    alert('Tidak ada transaksi untuk dihapus');
+                    Swal.fire({ title: 'Info', text: 'Tidak ada transaksi untuk dihapus', icon: 'info', confirmButtonColor: '#3085d6' });
                     return;
                 }
                 
-                // First confirmation
-                if (!confirm(`⚠️ PERINGATAN: Anda akan menghapus ${totalTransactions} transaksi dari halaman ini!\n\nIni akan menghapus:\n• Semua transaksi\n• Semua item transaksi\n• Data terkait\n\nTindakan ini tidak dapat dibatalkan!\n\nApakah Anda yakin?`)) {
-                    return;
-                }
-                
-                // Second confirmation with transaction codes
-                const transactionCodes = [];
-                transactionRows.forEach(row => {
-                    const codeElement = row.querySelector('h6.mb-0.text-sm');
-                    if (codeElement) {
-                        transactionCodes.push(codeElement.textContent.trim());
-                    }
-                });
-                
-                const codeList = transactionCodes.slice(0, 5).join('\n');
-                const remainingCount = transactionCodes.length > 5 ? transactionCodes.length - 5 : 0;
-                const detailedMessage = `Transaksi yang akan dihapus:\n\n${codeList}${remainingCount > 0 ? `\n... dan ${remainingCount} transaksi lainnya` : ''}\n\nApakah Anda yakin ingin melanjutkan?`;
-                
-                if (!confirm(detailedMessage)) {
-                    return;
-                }
-                
-                // Final safety check
-                const safetyInput = prompt('Ketik "HAPUS" (tanpa tanda kutip) untuk mengkonfirmasi penghapusan semua transaksi:');
-                if (safetyInput !== 'HAPUS') {
-                    alert('Penghapusan dibatalkan. Anda harus mengetik "HAPUS" untuk mengkonfirmasi.');
-                    return;
-                }
-                
-                // Show loading state
-                deleteAllTransactionsBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Menghapus...';
-                deleteAllTransactionsBtn.disabled = true;
-                
-                // Get all transaction IDs
-                const transactionIds = [];
-                transactionRows.forEach(row => {
-                    const deleteBtn = row.querySelector('.delete-transaction');
-                    if (deleteBtn) {
-                        transactionIds.push(deleteBtn.getAttribute('data-transaction-id'));
-                    }
-                });
-                
-                // Send bulk delete request
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-                
-                fetch('/transaction-history/bulk-delete', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        transaction_ids: transactionIds
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        alert(`✅ Berhasil menghapus ${data.deleted_count} transaksi!`);
-                        window.location.reload();
-                    } else {
-                        alert('❌ Error: ' + (data.message || 'Gagal menghapus transaksi'));
-                        resetDeleteAllTransactionsButton();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('❌ Terjadi kesalahan saat menghapus transaksi: ' + error.message);
-                    resetDeleteAllTransactionsButton();
+                // First confirmation - SweetAlert
+                Swal.fire({
+                    title: 'Hapus Semua Transaksi?',
+                    html: '<strong class="text-danger">PERINGATAN:</strong> Anda akan menghapus <strong>' + totalTransactions + ' transaksi</strong> dari halaman ini!<br><br>Ini akan menghapus:<br>• Semua transaksi<br>• Semua item transaksi<br>• Data terkait<br><br><span class="text-danger">Tindakan ini tidak dapat dibatalkan!</span>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Lanjutkan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true
+                }).then(function(firstResult) {
+                    if (!firstResult.isConfirmed) return;
+                    var transactionCodes = [];
+                    transactionRows.forEach(function(row) {
+                        var codeElement = row.querySelector('h6.mb-0.text-sm');
+                        if (codeElement) transactionCodes.push(codeElement.textContent.trim());
+                    });
+                    var codeList = transactionCodes.slice(0, 5).join('<br>');
+                    var remainingCount = transactionCodes.length > 5 ? transactionCodes.length - 5 : 0;
+                    var detailHtml = 'Transaksi yang akan dihapus:<br><br>' + codeList + (remainingCount > 0 ? '<br>... dan ' + remainingCount + ' transaksi lainnya' : '') + '<br><br>Lanjutkan?';
+                    Swal.fire({
+                        title: 'Konfirmasi Lagi',
+                        html: detailHtml,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Ya, Hapus Semua',
+                        cancelButtonText: 'Batal'
+                    }).then(function(secondResult) {
+                        if (!secondResult.isConfirmed) return;
+                        // Final: ketik HAPUS
+                        Swal.fire({
+                            title: 'Konfirmasi Akhir',
+                            html: 'Ketik <strong>HAPUS</strong> (huruf besar) untuk mengkonfirmasi penghapusan semua transaksi:',
+                            input: 'text',
+                            inputPlaceholder: 'HAPUS',
+                            inputValidator: function(value) {
+                                if (value !== 'HAPUS') return 'Anda harus mengetik HAPUS untuk mengkonfirmasi.';
+                                return null;
+                            },
+                            showCancelButton: true,
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#6c757d',
+                            confirmButtonText: 'Hapus Semua',
+                            cancelButtonText: 'Batal'
+                        }).then(function(thirdResult) {
+                            if (!thirdResult.isConfirmed) return;
+                            deleteAllTransactionsBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Menghapus...';
+                            deleteAllTransactionsBtn.disabled = true;
+                            var transactionIds = [];
+                            transactionRows.forEach(function(row) {
+                                var deleteBtn = row.querySelector('.delete-transaction');
+                                if (deleteBtn) transactionIds.push(deleteBtn.getAttribute('data-transaction-id'));
+                            });
+                            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                            fetch('/transaction-history/bulk-delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                                body: JSON.stringify({ transaction_ids: transactionIds })
+                            })
+                            .then(function(response) {
+                                if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
+                                return response.json();
+                            })
+                            .then(function(data) {
+                                if (data.success) {
+                                    Swal.fire({ title: 'Berhasil', text: 'Berhasil menghapus ' + data.deleted_count + ' transaksi!', icon: 'success', confirmButtonColor: '#3085d6' }).then(function() { window.location.reload(); });
+                                } else {
+                                    Swal.fire({ title: 'Error', text: data.message || 'Gagal menghapus transaksi', icon: 'error', confirmButtonColor: '#3085d6' });
+                                    resetDeleteAllTransactionsButton();
+                                }
+                            })
+                            .catch(function(error) {
+                                console.error('Error:', error);
+                                Swal.fire({ title: 'Error', text: 'Terjadi kesalahan: ' + error.message, icon: 'error', confirmButtonColor: '#3085d6' });
+                                resetDeleteAllTransactionsButton();
+                            });
+                        });
+                    });
                 });
             });
         }
@@ -483,41 +485,41 @@
 
     // Fix cashier data function
     function fixCashierData() {
-        if (!confirm('Apakah Anda yakin ingin memperbaiki data kasir? Tindakan ini akan mengupdate transaksi yang memiliki data kasir yang tidak valid.')) {
-            return;
-        }
-
-        // Show loading state
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memperbaiki...';
-        button.disabled = true;
-
-        fetch('/transaction-history/fix-cashier-data', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Berhasil memperbaiki ' + data.fixed_count + ' transaksi!');
-                // Reload the page to show updated data
-                window.location.reload();
-            } else {
-                alert('Error: ' + (data.error || 'Terjadi kesalahan'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Terjadi kesalahan saat memperbaiki data kasir');
-        })
-        .finally(() => {
-            // Restore button state
-            button.innerHTML = originalText;
-            button.disabled = false;
+        var button = event.target;
+        var originalText = button.innerHTML;
+        Swal.fire({
+            title: 'Perbaiki Data Kasir?',
+            text: 'Tindakan ini akan mengupdate transaksi yang memiliki data kasir yang tidak valid.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, Perbaiki',
+            cancelButtonText: 'Batal'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memperbaiki...';
+            button.disabled = true;
+            fetch('/transaction-history/fix-cashier-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    Swal.fire({ title: 'Berhasil', text: 'Berhasil memperbaiki ' + data.fixed_count + ' transaksi!', icon: 'success', confirmButtonColor: '#3085d6' }).then(function() { window.location.reload(); });
+                } else {
+                    Swal.fire({ title: 'Error', text: data.error || 'Terjadi kesalahan', icon: 'error', confirmButtonColor: '#3085d6' });
+                }
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+                Swal.fire({ title: 'Error', text: 'Terjadi kesalahan saat memperbaiki data kasir', icon: 'error', confirmButtonColor: '#3085d6' });
+            })
+            .finally(function() {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
         });
     }
 </script>

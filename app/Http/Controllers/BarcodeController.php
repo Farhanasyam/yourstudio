@@ -55,10 +55,16 @@ class BarcodeController extends Controller
             $query->where('item_id', $request->item_id);
         }
         
-        $barcodes = $query->orderBy('created_at', 'desc')->paginate(15);
+        $barcodes = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
         
         // Get items for filter
         $items = Item::orderBy('name')->get();
+        
+        // Summary stats untuk Barcode Summary card
+        $totalItems = Item::count();
+        $itemsWithBarcodes = Item::whereHas('barcodes', function($q) { $q->where('is_active', true); })->count();
+        $itemsWithoutBarcodes = $totalItems - $itemsWithBarcodes;
+        $completionPercentage = $totalItems > 0 ? round(($itemsWithBarcodes / $totalItems) * 100, 1) : 0;
         
         if ($request->ajax()) {
             return response()->json([
@@ -67,7 +73,7 @@ class BarcodeController extends Controller
             ]);
         }
         
-        return view('pages.barcodes.index', compact('barcodes', 'items'));
+        return view('pages.barcodes.index', compact('barcodes', 'items', 'totalItems', 'itemsWithBarcodes', 'itemsWithoutBarcodes', 'completionPercentage'));
     }
 
     /**
@@ -75,9 +81,8 @@ class BarcodeController extends Controller
      */
     public function create()
     {
-        $items = Item::whereDoesntHave('barcodes', function($query) {
-            $query->where('is_active', true);
-        })->get();
+        // Tampilkan semua item (satu item boleh punya beberapa tipe: CODE128, QR, dll.)
+        $items = Item::orderBy('name')->get();
         
         return view('pages.barcodes.create', compact('items'));
     }
@@ -124,19 +129,14 @@ class BarcodeController extends Controller
                 ->withInput();
         }
 
-        // Cek apakah item sudah memiliki barcode aktif
-        $existingActiveBarcode = Barcode::where('item_id', $request->item_id)
-            ->where('is_active', true)
-            ->first();
-
-        // Jika akan membuat barcode aktif dan sudah ada yang aktif
-        if ($request->has('is_active') && $existingActiveBarcode) {
-            return redirect()->back()
-                ->withErrors(['item_id' => 'Item ini sudah memiliki barcode aktif. Hanya satu barcode yang boleh aktif per item.'])
-                ->withInput();
-        }
-
         try {
+            DB::beginTransaction();
+
+            // Satu produk hanya satu barcode per tipe: hapus barcode dengan tipe yang sama untuk item ini
+            Barcode::where('item_id', $request->item_id)
+                ->where('barcode_type', $request->barcode_type)
+                ->delete();
+
             $barcode = Barcode::create([
                 'item_id' => $request->item_id,
                 'barcode_value' => $request->barcode_number,
@@ -146,11 +146,13 @@ class BarcodeController extends Controller
                 'is_printed' => false,
             ]);
 
+            DB::commit();
             \Log::info('Barcode created:', $barcode->toArray());
 
             return redirect()->route('barcodes.index')
                 ->with('success', 'Barcode created successfully.');
         } catch (\Exception $e) {
+            DB::rollBack();
             \Log::error('Error creating barcode:', ['error' => $e->getMessage()]);
             return redirect()->back()
                 ->withErrors(['error' => 'Failed to create barcode: ' . $e->getMessage()])
@@ -268,18 +270,108 @@ class BarcodeController extends Controller
         ]);
 
         $barcodeType = $request->input('barcode_type', 'CODE128');
-        $barcodeValue = $this->generateBarcodeValue($barcodeType);
+        $itemId = $request->item_id;
 
-        $barcode = Barcode::create([
-            'item_id' => $request->item_id,
-            'barcode_value' => $barcodeValue,
-            'barcode_type' => $barcodeType,
-            'is_active' => false, // Default tidak aktif
-            'created_by' => Auth::id(),
+        try {
+            DB::beginTransaction();
+
+            // Satu produk hanya satu barcode per tipe: hapus yang lama dengan tipe yang sama
+            Barcode::where('item_id', $itemId)->where('barcode_type', $barcodeType)->delete();
+
+            $barcodeValue = $this->generateBarcodeValue($barcodeType);
+
+            $barcode = Barcode::create([
+                'item_id' => $itemId,
+                'barcode_value' => $barcodeValue,
+                'barcode_type' => $barcodeType,
+                'is_active' => true,
+                'created_by' => Auth::id(),
+            ]);
+
+            DB::commit();
+            return redirect()->route('barcodes.edit', $barcode)
+                ->with('success', 'Barcode tipe ' . $barcodeType . ' berhasil digenerate (barcode lama dengan tipe sama otomatis dihapus).');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Generate barcode gagal: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate semua tipe barcode sekaligus untuk satu item (CODE128, CODE39, EAN13, QR).
+     * Barcode lama per tipe otomatis dihapus.
+     */
+    public function generateAllTypes(Request $request)
+    {
+        $request->validate([
+            'item_id' => 'required|exists:items,id',
         ]);
 
-        return redirect()->route('barcodes.edit', $barcode)
-            ->with('success', 'Barcode generated successfully.');
+        $itemId = $request->item_id;
+        $types = ['CODE128', 'CODE39', 'EAN13', 'QR'];
+        $created = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($types as $barcodeType) {
+                Barcode::where('item_id', $itemId)->where('barcode_type', $barcodeType)->delete();
+                $barcodeValue = $this->generateBarcodeValue($barcodeType);
+                Barcode::create([
+                    'item_id' => $itemId,
+                    'barcode_value' => $barcodeValue,
+                    'barcode_type' => $barcodeType,
+                    'is_active' => true,
+                    'created_by' => Auth::id(),
+                    'is_printed' => false,
+                ]);
+                $created[] = $barcodeType;
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Generate semua tipe gagal: ' . $e->getMessage());
+        }
+
+        return redirect()->route('barcodes.index')
+            ->with('success', 'Semua tipe barcode (CODE128, CODE39, EAN13, QR) berhasil digenerate untuk item ini. Barcode lama otomatis dihapus.');
+    }
+
+    /**
+     * Bulk generate semua tipe (CODE128, CODE39, EAN13, QR) untuk SEMUA produk.
+     */
+    public function bulkGenerateAllTypes(Request $request)
+    {
+        $items = Item::orderBy('name')->get();
+        if ($items->isEmpty()) {
+            return redirect()->route('barcodes.bulk-generate-form')->with('error', 'Tidak ada item.');
+        }
+
+        $types = ['CODE128', 'CODE39', 'EAN13', 'QR'];
+
+        DB::beginTransaction();
+        try {
+            foreach ($items as $item) {
+                foreach ($types as $barcodeType) {
+                    Barcode::where('item_id', $item->id)->where('barcode_type', $barcodeType)->delete();
+                    $barcodeValue = $this->generateBarcodeValue($barcodeType);
+                    Barcode::create([
+                        'item_id' => $item->id,
+                        'barcode_value' => $barcodeValue,
+                        'barcode_type' => $barcodeType,
+                        'is_active' => true,
+                        'created_by' => Auth::id(),
+                        'is_printed' => false,
+                    ]);
+                }
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('barcodes.bulk-generate-form')->with('error', 'Bulk generate gagal: ' . $e->getMessage());
+        }
+
+        return redirect()->route('barcodes.bulk-generate-form')
+            ->with('success', 'Semua tipe barcode (CODE128, CODE39, EAN13, QR) berhasil digenerate untuk ' . $items->count() . ' produk.');
     }
 
     /**
@@ -400,13 +492,23 @@ class BarcodeController extends Controller
     }
 
     /**
-     * Print barcode
+     * Halaman pilih jenis barcode yang akan dicetak (per item).
+     * User harus pilih salah satu barcode dulu baru bisa buka halaman print.
+     */
+    public function printSelect(Item $item)
+    {
+        $item->load(['allBarcodes', 'category']);
+        $barcodes = $item->allBarcodes;
+        return view('pages.barcodes.print-select', compact('item', 'barcodes'));
+    }
+
+    /**
+     * Print barcode (hanya diakses setelah pilih di print-select atau link langsung ke satu barcode)
      */
     public function print(Barcode $barcode)
     {
         $barcode->load(['item', 'creator']);
         
-        // Mark as printed when accessed for printing
         if (!$barcode->is_printed) {
             $barcode->update([
                 'is_printed' => true,
@@ -463,17 +565,25 @@ class BarcodeController extends Controller
      */
     public function bulkGenerateForm()
     {
-        // Get items that don't have active barcodes
-        $itemsWithoutBarcodes = Item::whereDoesntHave('barcodes', function($query) {
+        $totalItems = Item::count();
+        $itemsWithBarcodes = Item::whereHas('barcodes', function($query) {
+            $query->where('is_active', true);
+        })->count();
+        $itemsWithoutBarcodes = $totalItems - $itemsWithBarcodes;
+        $completionPercentage = $totalItems > 0 ? round(($itemsWithBarcodes / $totalItems) * 100, 1) : 0;
+
+        $itemsWithoutBarcodesList = Item::whereDoesntHave('barcodes', function($query) {
             $query->where('is_active', true);
         })->with('category')->orderBy('name')->get();
 
-        // Get all items for option to regenerate
         $allItems = Item::with(['category', 'barcodes' => function($query) {
             $query->where('is_active', true);
         }])->orderBy('name')->get();
 
-        return view('pages.barcodes.bulk-generate', compact('itemsWithoutBarcodes', 'allItems'));
+        return view('pages.barcodes.bulk-generate', compact(
+            'itemsWithoutBarcodesList', 'allItems',
+            'totalItems', 'itemsWithBarcodes', 'itemsWithoutBarcodes', 'completionPercentage'
+        ));
     }
 
     /**
@@ -486,76 +596,39 @@ class BarcodeController extends Controller
             'generation_mode' => 'required|in:missing_only,all_items,selected_items',
             'item_ids' => 'required_if:generation_mode,selected_items|array',
             'item_ids.*' => 'exists:items,id',
-            'replace_existing' => 'sometimes|boolean'
         ]);
 
         $barcodeType = $request->barcode_type;
         $generationMode = $request->generation_mode;
-        $replaceExisting = $request->boolean('replace_existing', false);
-        
-        $successCount = 0;
-        $errorCount = 0;
-        $errors = [];
 
         try {
             DB::beginTransaction();
 
-            // Determine which items to process
-            $items = $this->getItemsForBulkGeneration($generationMode, $request->item_ids);
+            $items = $this->getItemsForBulkGeneration($generationMode, $request->item_ids, $barcodeType);
 
             foreach ($items as $item) {
-                try {
-                    // Check if item already has active barcode
-                    $existingBarcode = Barcode::where('item_id', $item->id)
-                        ->where('is_active', true)
-                        ->first();
+                // Satu produk hanya satu barcode per tipe: hapus barcode lama dengan tipe yang sama
+                Barcode::where('item_id', $item->id)->where('barcode_type', $barcodeType)->delete();
 
-                    if ($existingBarcode && !$replaceExisting) {
-                        continue; // Skip if already has barcode and not replacing
-                    }
+                $barcodeValue = $this->generateBarcodeValue($barcodeType);
 
-                    // Deactivate existing barcode if replacing
-                    if ($existingBarcode && $replaceExisting) {
-                        $existingBarcode->update(['is_active' => false]);
-                    }
-
-                    // Generate new barcode
-                    $barcodeValue = $this->generateBarcodeValue($barcodeType);
-
-                    Barcode::create([
-                        'item_id' => $item->id,
-                        'barcode_value' => $barcodeValue,
-                        'barcode_type' => $barcodeType,
-                        'is_active' => true,
-                        'created_by' => Auth::id(),
-                        'is_printed' => false,
-                    ]);
-
-                    $successCount++;
-
-                } catch (\Exception $e) {
-                    $errors[] = "Item '{$item->name}': " . $e->getMessage();
-                    $errorCount++;
-                }
+                Barcode::create([
+                    'item_id' => $item->id,
+                    'barcode_value' => $barcodeValue,
+                    'barcode_type' => $barcodeType,
+                    'is_active' => true,
+                    'created_by' => Auth::id(),
+                    'is_printed' => false,
+                ]);
             }
 
             DB::commit();
 
-            // Prepare response message
-            $message = "Bulk barcode generation completed. {$successCount} barcodes generated";
-            if ($errorCount > 0) {
-                $message .= ", {$errorCount} errors";
-                session()->flash('error_details', implode("\n", array_slice($errors, 0, 10)));
-                if (count($errors) > 10) {
-                    session()->flash('error_details', session('error_details') . "\n... and " . (count($errors) - 10) . " more errors");
-                }
-                return redirect()->route('barcodes.index')->with('warning', $message);
-            }
-
-            return redirect()->route('barcodes.index')->with('success', $message);
+            return redirect()->route('barcodes.index')
+                ->with('success', 'Bulk barcode generation completed. ' . $items->count() . ' barcodes generated.');
 
         } catch (\Exception $e) {
-            DB::rollback();
+            DB::rollBack();
             return redirect()->back()->with('error', 'Bulk generation failed: ' . $e->getMessage());
         }
     }
@@ -563,12 +636,13 @@ class BarcodeController extends Controller
     /**
      * Get items for bulk generation based on mode
      */
-    private function getItemsForBulkGeneration($mode, $itemIds = null)
+    private function getItemsForBulkGeneration($mode, $itemIds = null, $barcodeType = null)
     {
         switch ($mode) {
             case 'missing_only':
-                return Item::whereDoesntHave('barcodes', function($query) {
-                    $query->where('is_active', true);
+                // Item yang belum punya barcode (aktif maupun tidak) dengan tipe ini
+                return Item::whereDoesntHave('allBarcodes', function($query) use ($barcodeType) {
+                    $query->where('barcode_type', $barcodeType);
                 })->get();
 
             case 'all_items':

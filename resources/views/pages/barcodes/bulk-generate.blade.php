@@ -25,19 +25,19 @@
                                     <div class="card-body">
                                         <div class="row" id="statsContainer">
                                             <div class="col-md-3 text-center">
-                                                <h4 class="text-white mb-0" id="totalItems">-</h4>
+                                                <h4 class="text-white mb-0" id="totalItems">{{ $totalItems ?? 0 }}</h4>
                                                 <p class="text-white mb-0">Total Items</p>
                                             </div>
                                             <div class="col-md-3 text-center">
-                                                <h4 class="text-white mb-0" id="itemsWithBarcodes">-</h4>
+                                                <h4 class="text-white mb-0" id="itemsWithBarcodes">{{ $itemsWithBarcodes ?? 0 }}</h4>
                                                 <p class="text-white mb-0">With Barcodes</p>
                                             </div>
                                             <div class="col-md-3 text-center">
-                                                <h4 class="text-white mb-0" id="itemsWithoutBarcodes">-</h4>
+                                                <h4 class="text-white mb-0" id="itemsWithoutBarcodes">{{ $itemsWithoutBarcodes ?? 0 }}</h4>
                                                 <p class="text-white mb-0">Without Barcodes</p>
                                             </div>
                                             <div class="col-md-3 text-center">
-                                                <h4 class="text-white mb-0" id="completionPercentage">-%</h4>
+                                                <h4 class="text-white mb-0" id="completionPercentage">{{ $completionPercentage ?? 0 }}%</h4>
                                                 <p class="text-white mb-0">Completion</p>
                                             </div>
                                         </div>
@@ -46,7 +46,48 @@
                             </div>
                         </div>
 
-                        <!-- Generation Form -->
+                        <!-- Generate Semua Tipe untuk SEMUA Produk (Bulk) -->
+                        <div class="card bg-gradient-success mb-4">
+                            <div class="card-body">
+                                <h6 class="mb-2 text-white">Generate semua tipe barcode untuk semua barang</h6>
+                                <p class="text-sm text-white opacity-8 mb-3">Satu klik: generate CODE128, CODE39, EAN13, dan QR untuk <strong>semua {{ $totalItems }} produk</strong>. Barcode lama per tipe otomatis dihapus.</p>
+                                <form id="bulkGenerateAllTypesForm" action="{{ route('barcodes.bulk-generate-all-types') }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-light" id="bulkAllTypesBtn">
+                                        <i class="fas fa-barcode"></i> Generate Semua Tipe untuk Semua Barang
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Generate Semua Tipe untuk Satu Item -->
+                        <div class="card bg-light mb-4">
+                            <div class="card-body">
+                                <h6 class="mb-3">Generate semua tipe untuk satu item</h6>
+                                <p class="text-sm text-muted mb-3">Pilih satu item, lalu klik Generate. Semua tipe (CODE128, CODE39, EAN13, QR) akan dibuat; barcode lama per tipe otomatis dihapus.</p>
+                                <form id="generateAllTypesOneItemForm" action="{{ route('barcodes.generate-all-types') }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <div class="row align-items-end">
+                                        <div class="col-md-8">
+                                            <label class="form-label">Pilih item</label>
+                                            <select class="form-select" name="item_id" required>
+                                                <option value="">-- Pilih item --</option>
+                                                @foreach($allItems as $it)
+                                                    <option value="{{ $it->id }}">{{ $it->name }} ({{ $it->sku ?? '-' }})</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="submit" class="btn btn-info w-100">
+                                                <i class="fas fa-barcode"></i> Generate Semua Tipe
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Generation Form (satu tipe, banyak item) -->
                         <form action="{{ route('barcodes.bulk-generate') }}" method="POST" id="bulkGenerateForm">
                             @csrf
                             
@@ -88,7 +129,7 @@
                                             id="generation_mode" name="generation_mode" required>
                                         <option value="">Select Generation Mode</option>
                                         <option value="missing_only" {{ old('generation_mode') == 'missing_only' ? 'selected' : '' }}>
-                                            Only Items Without Barcodes ({{ $itemsWithoutBarcodes->count() }} items)
+                                            Only Items Without Barcodes ({{ $itemsWithoutBarcodes }} items)
                                         </option>
                                         <option value="all_items" {{ old('generation_mode') == 'all_items' ? 'selected' : '' }}>
                                             All Items ({{ $allItems->count() }} items)
@@ -100,26 +141,6 @@
                                     @error('generation_mode')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-                                </div>
-                            </div>
-
-                            <!-- Replace Existing Option -->
-                            <div class="row mb-4">
-                                <div class="col-12">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" 
-                                               id="replace_existing" name="replace_existing" value="1"
-                                               {{ old('replace_existing') ? 'checked' : '' }}>
-                                        <label class="form-check-label" for="replace_existing">
-                                            Replace existing active barcodes
-                                        </label>
-                                        <div class="form-text">
-                                            <small class="text-warning">
-                                                <i class="fas fa-exclamation-triangle"></i>
-                                                Warning: This will deactivate existing barcodes and create new ones
-                                            </small>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -197,11 +218,58 @@
     </div>
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Load statistics
     loadStats();
+
+    // Bulk generate SEMUA tipe untuk SEMUA produk - konfirmasi SweetAlert
+    var bulkAllForm = document.getElementById('bulkGenerateAllTypesForm');
+    if (bulkAllForm) {
+        bulkAllForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var form = this;
+            var btn = document.getElementById('bulkAllTypesBtn');
+            Swal.fire({
+                title: 'Generate Semua Tipe Barcode',
+                html: 'Generate CODE128, CODE39, EAN13, dan QR untuk <strong>semua {{ $totalItems }} produk</strong>?<br><br><span class="text-danger">Barcode lama akan dihapus.</span>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#2dce89',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Generate',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...'; }
+                    form.submit();
+                }
+            });
+        });
+    }
+
+    // Generate semua tipe untuk satu item - konfirmasi SweetAlert
+    var oneItemForm = document.getElementById('generateAllTypesOneItemForm');
+    if (oneItemForm) {
+        oneItemForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var form = this;
+            Swal.fire({
+                title: 'Generate Semua Tipe',
+                text: 'Generate CODE128, CODE39, EAN13, dan QR untuk item ini? Barcode lama per tipe akan dihapus.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#5e72e4',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Generate',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (result.isConfirmed) form.submit();
+            });
+        });
+    }
     
     // Handle generation mode change
     document.getElementById('generation_mode').addEventListener('change', function() {
@@ -262,14 +330,13 @@ function loadStats() {
     fetch('{{ route("barcodes.generation-stats") }}')
         .then(response => response.json())
         .then(data => {
+            if (data.error) return;
             document.getElementById('totalItems').textContent = data.total_items;
             document.getElementById('itemsWithBarcodes').textContent = data.items_with_barcodes;
             document.getElementById('itemsWithoutBarcodes').textContent = data.items_without_barcodes;
             document.getElementById('completionPercentage').textContent = data.completion_percentage + '%';
         })
-        .catch(error => {
-            console.error('Error loading stats:', error);
-        });
+        .catch(function() {});
 }
 </script>
-@endsection
+@endpush

@@ -69,9 +69,9 @@ class ItemController extends Controller
             $query->where('selling_price', '<=', $request->price_max);
         }
         
-        // Filter by active status
+        // Filter by active status: hanya jika user pilih Active (1) atau Inactive (0). All Status = jangan filter.
         if ($request->filled('is_active')) {
-            $query->where('is_active', $request->is_active);
+            $query->where('is_active', (int) $request->input('is_active'));
         }
         
         $items = $query->orderBy('name')->paginate(15);
@@ -83,7 +83,7 @@ class ItemController extends Controller
         if ($request->ajax()) {
             return response()->json([
                 'html' => view('pages.items.partials.table', compact('items'))->render(),
-                'pagination' => $items->links()->toHtml()
+                'pagination' => view('pages.items.partials.pagination-footer', compact('items'))->render(),
             ]);
         }
         
@@ -132,7 +132,7 @@ class ItemController extends Controller
      */
     public function show(Item $item)
     {
-        $item->load(['category', 'supplier']);
+        $item->load(['category', 'supplier', 'allBarcodes']);
         return view('pages.items.show', compact('item'));
     }
 

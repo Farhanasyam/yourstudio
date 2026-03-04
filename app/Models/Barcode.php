@@ -86,6 +86,14 @@ class Barcode extends Model
     }
 
     /**
+     * Alias for barcode_value (untuk kompatibilitas view yang memakai barcode_number)
+     */
+    public function getBarcodeNumberAttribute()
+    {
+        return $this->barcode_value;
+    }
+
+    /**
      * Get barcode display name
      */
     public function getDisplayNameAttribute()

@@ -87,8 +87,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Sweet Alert Delete -->
+    <!-- Sweet Alert Delete & Helpers -->
     <script src="/assets/js/sweet-alert-delete.js"></script>
+    <script src="/assets/js/swal-helpers.js"></script>
 
     @stack('scripts')
 </body>

@@ -10,46 +10,18 @@ class CategorySeeder extends Seeder
     public function run()
     {
         $categories = [
-            [
-                'name' => 'Elektronik',
-                'description' => 'Peralatan elektronik dan gadget',
-                'code' => 'ELK',
-            ],
-            [
-                'name' => 'Fashion',
-                'description' => 'Pakaian dan aksesoris fashion',
-                'code' => 'FSH',
-            ],
-            [
-                'name' => 'Makanan & Minuman',
-                'description' => 'Produk makanan dan minuman',
-                'code' => 'FNB',
-            ],
-            [
-                'name' => 'Kesehatan & Kecantikan',
-                'description' => 'Produk kesehatan dan kecantikan',
-                'code' => 'HLT',
-            ],
-            [
-                'name' => 'Rumah Tangga',
-                'description' => 'Peralatan rumah tangga',
-                'code' => 'HOM',
-            ],
-            [
-                'name' => 'Olahraga',
-                'description' => 'Peralatan dan perlengkapan olahraga',
-                'code' => 'SPT',
-            ],
-            [
-                'name' => 'Buku & Alat Tulis',
-                'description' => 'Buku dan alat tulis kantor',
-                'code' => 'BOK',
-            ],
-            [
-                'name' => 'Mainan & Hobi',
-                'description' => 'Mainan anak dan perlengkapan hobi',
-                'code' => 'TOY',
-            ],
+            ['name' => 'Cat Air', 'description' => 'Cat air dan watercolour', 'code' => 'CTA'],
+            ['name' => 'Cat Minyak', 'description' => 'Cat minyak untuk lukis', 'code' => 'CTM'],
+            ['name' => 'Cat Akrilik', 'description' => 'Cat akrilik dan acrylic paint', 'code' => 'CAK'],
+            ['name' => 'Kuas', 'description' => 'Kuas lukis dan kuas seni', 'code' => 'KUA'],
+            ['name' => 'Kanvas', 'description' => 'Kanvas dan media lukis', 'code' => 'KAN'],
+            ['name' => 'Easel', 'description' => 'Easel dan stand lukis', 'code' => 'EAS'],
+            ['name' => 'Palet', 'description' => 'Palet lukis dan palet knife', 'code' => 'PAL'],
+            ['name' => 'Clay', 'description' => 'Clay dan tanah liat', 'code' => 'CLY'],
+            ['name' => 'Alat Pembentuk', 'description' => 'Alat pembentuk dan ukir', 'code' => 'APB'],
+            ['name' => 'Oven Clay', 'description' => 'Oven dan perlengkapan clay', 'code' => 'OVC'],
+            ['name' => 'Finishing Clay', 'description' => 'Finishing dan vernish clay', 'code' => 'FIC'],
+            ['name' => 'Aksesoris Clay', 'description' => 'Aksesoris dan perlengkapan clay', 'code' => 'ACC'],
         ];
 
         foreach ($categories as $category) {

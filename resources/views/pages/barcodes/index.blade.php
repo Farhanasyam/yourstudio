@@ -29,21 +29,21 @@
                             <div class="col-md-4 text-center py-4 border-end">
                                 <div class="numbers">
                                     <p class="text-sm mb-2 text-uppercase font-weight-bold text-primary">Total Items</p>
-                                    <h2 class="font-weight-bolder mb-0" id="totalItems">-</h2>
+                                    <h2 class="font-weight-bolder mb-0" id="totalItems">{{ $totalItems ?? 0 }}</h2>
                                     <span class="text-sm text-muted">in inventory</span>
                                 </div>
                             </div>
                             <div class="col-md-4 text-center py-4 border-end">
                                 <div class="numbers">
                                     <p class="text-sm mb-2 text-uppercase font-weight-bold text-success">With Barcode</p>
-                                    <h2 class="font-weight-bolder mb-0" id="itemsWithBarcodes">-</h2>
-                                    <span class="text-sm text-success">Ready to Use</span>
+                                    <h2 class="font-weight-bolder mb-0" id="itemsWithBarcodes">{{ $itemsWithBarcodes ?? 0 }}</h2>
+                                    <span class="text-sm text-success">Ready to Use ({{ $completionPercentage ?? 0 }}%)</span>
                                 </div>
                             </div>
                             <div class="col-md-4 text-center py-4">
                                 <div class="numbers">
                                     <p class="text-sm mb-2 text-uppercase font-weight-bold text-warning">Pending</p>
-                                    <h2 class="font-weight-bolder mb-0" id="itemsWithoutBarcodes">-</h2>
+                                    <h2 class="font-weight-bolder mb-0" id="itemsWithoutBarcodes">{{ $itemsWithoutBarcodes ?? 0 }}</h2>
                                     <span class="text-sm text-warning">Need Barcode</span>
                                 </div>
                             </div>
@@ -54,27 +54,41 @@
         </div>
 
         <style>
-        .border-end {
-            border-right: 1px solid #dee2e6 !important;
-        }
-        .numbers h2 {
-            font-size: 2.5rem;
-            line-height: 1.2;
-        }
-        #lastUpdate {
-            font-size: 0.75rem;
-            padding: 0.5rem 0.75rem;
-        }
-        </style>
+        .border-end { border-right: 1px solid #dee2e6 !important; }
+        .numbers h2 { font-size: 2.5rem; line-height: 1.2; }
+        #lastUpdate { font-size: 0.75rem; padding: 0.5rem 0.75rem; }
         </style>
 
         <div class="row">
             <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header pb-0">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h6>Barcodes</h6>
-                            <div class="btn-group" role="group">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap">
+                            <h6 class="mb-0">Barcodes</h6>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                {{-- Filter jenis barcode --}}
+                                <form method="GET" action="{{ route('barcodes.index') }}" class="d-inline-flex align-items-center" id="filterForm">
+                                    @if(request()->filled('search'))
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                    @endif
+                                    @if(request()->filled('item_id'))
+                                        <input type="hidden" name="item_id" value="{{ request('item_id') }}">
+                                    @endif
+                                    @if(request()->filled('is_active'))
+                                        <input type="hidden" name="is_active" value="{{ request('is_active') }}">
+                                    @endif
+                                    @if(request()->filled('is_printed'))
+                                        <input type="hidden" name="is_printed" value="{{ request('is_printed') }}">
+                                    @endif
+                                    <label class="me-2 mb-0 text-sm">Filter:</label>
+                                    <select name="barcode_type" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                                        <option value="">Semua Tipe</option>
+                                        <option value="CODE128" {{ request('barcode_type') == 'CODE128' ? 'selected' : '' }}>CODE128</option>
+                                        <option value="CODE39" {{ request('barcode_type') == 'CODE39' ? 'selected' : '' }}>CODE39</option>
+                                        <option value="EAN13" {{ request('barcode_type') == 'EAN13' ? 'selected' : '' }}>EAN13</option>
+                                        <option value="QR" {{ request('barcode_type') == 'QR' ? 'selected' : '' }}>QR</option>
+                                    </select>
+                                </form>
                                 <a href="{{ route('barcodes.bulk-generate-form') }}" class="btn btn-success btn-sm">
                                     <i class="fas fa-magic"></i> Bulk Generate
                                 </a>
@@ -85,6 +99,7 @@
                         </div>
                     </div>
                     <div class="card-body px-0 pt-0 pb-2">
+                        {{-- Search (optional - bisa ditambah di sini jika ada) --}}
                         <div class="table-responsive p-0">
                             <table class="table align-items-center mb-0">
                                 <thead>
@@ -171,6 +186,17 @@
                                 </tbody>
                             </table>
                         </div>
+                        {{-- Pagination: panah dan nomor halaman --}}
+                        @if($barcodes->hasPages())
+                            <div class="card-footer py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                                <div class="text-sm text-muted">
+                                    Showing {{ $barcodes->firstItem() ?? 0 }} to {{ $barcodes->lastItem() ?? 0 }} of {{ $barcodes->total() }} results
+                                </div>
+                                <div class="mt-2 mt-md-0">
+                                    {{ $barcodes->appends(request()->query())->links() }}
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -179,184 +205,15 @@
     </div>
 @endsection
 
-@section('scripts')
-<script>
-// Delete confirmation handler
-function deleteConfirmation(formId) {
-    Swal.fire({
-        title: 'Konfirmasi Hapus',
-        text: "Apakah anda yakin ingin menghapus data ini?",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            document.getElementById(formId).submit();
-        }
-    });
-}
-</script>
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize statistics
-    loadStats();
-});
-
-function animateNumber(elementId, finalNumber) {
-    console.log(`Animating ${elementId} to ${finalNumber}`);
-    const element = document.getElementById(elementId);
-    
-    if (!element) {
-        console.error(`Element with id ${elementId} not found`);
-        return;
+    var el = document.getElementById('updateTime');
+    if (el) {
+        var now = new Date();
+        el.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     }
-
-    // Pastikan finalNumber adalah angka
-    finalNumber = parseInt(finalNumber) || 0;
-    
-    // Jika angka kecil, tidak perlu animasi
-    if (finalNumber <= 5) {
-        element.textContent = finalNumber.toString();
-        return;
-    }
-
-    const duration = 1000;
-    const stepTime = 50;
-    const steps = duration / stepTime;
-    const increment = finalNumber / steps;
-    let currentNumber = 0;
-    let currentStep = 0;
-
-    const animation = setInterval(() => {
-        currentStep++;
-        currentNumber += increment;
-        
-        if (currentStep >= steps) {
-            clearInterval(animation);
-            element.textContent = finalNumber.toString();
-        } else {
-            element.textContent = Math.round(currentNumber).toString();
-        }
-    }, stepTime);
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Load statistics
-    loadStats();
-
-    // Add refresh button handler
-    document.getElementById('refreshStats').addEventListener('click', function() {
-        this.disabled = true;
-        const icon = this.querySelector('i');
-        icon.classList.add('fa-spin');
-        
-        loadStats().finally(() => {
-            setTimeout(() => {
-                this.disabled = false;
-                icon.classList.remove('fa-spin');
-            }, 1000);
-        });
-    });
 });
-
-function updateLastUpdateTime() {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('updateTime').textContent = `${hours}:${minutes}`;
-}
-
-async function loadStats() {
-    console.log('Loading barcode statistics...');
-    
-    // Tampilkan loading state
-    document.getElementById('totalItems').textContent = 'Loading...';
-    document.getElementById('itemsWithBarcodes').textContent = 'Loading...';
-    document.getElementById('itemsWithoutBarcodes').textContent = 'Loading...';
-    
-    // Update waktu
-    updateLastUpdateTime();
-    
-    return fetch('{{ route("barcodes.generation-stats") }}', {
-        method: 'GET',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-        },
-        credentials: 'same-origin'
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            console.log('Response received:', response);
-            return response.json();
-        })
-        .then(data => {
-            console.log('Data received:', data);
-            
-            if (!data.total_items && data.total_items !== 0) {
-                throw new Error('Invalid data received from server');
-            }
-            // Animate the numbers
-            animateNumber('totalItems', data.total_items);
-            animateNumber('itemsWithBarcodes', data.items_with_barcodes);
-            animateNumber('itemsWithoutBarcodes', data.items_without_barcodes);
-            
-            // Update completion percentage and progress bar
-            const completionPercentage = data.completion_percentage;
-            const formattedPercentage = Number(completionPercentage).toFixed(0); // Bulatkan ke angka bulat
-            document.getElementById('completionPercentage').textContent = formattedPercentage + '%';
-            
-            // Animate progress bar with color based on percentage
-            const progressBar = document.getElementById('completionProgress');
-            progressBar.style.width = '0%';
-            
-            // Set warna berdasarkan persentase
-            let barColor = 'bg-gradient-danger'; // 0-25%
-            if (completionPercentage > 75) {
-                barColor = 'bg-gradient-success';
-            } else if (completionPercentage > 50) {
-                barColor = 'bg-gradient-info';
-            } else if (completionPercentage > 25) {
-                barColor = 'bg-gradient-warning';
-            }
-            
-            // Update class warna
-            progressBar.className = `progress-bar ${barColor}`;
-            
-            // Animate width
-            setTimeout(() => {
-                progressBar.style.transition = 'width 1s ease-in-out';
-                progressBar.style.width = formattedPercentage + '%';
-            }, 200);
-        })
-        .catch(error => {
-            console.error('Error loading stats:', error);
-            console.error('Error details:', error.stack);
-            // Show error alert
-            const errorAlert = `
-                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert">
-                    <i class="fas fa-exclamation-circle flex-shrink-0 me-2"></i>
-                    <div>
-                        <strong>Error!</strong> Failed to load barcode statistics. Please refresh the page or contact support if the problem persists.
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            `;
-            document.getElementById('alert').innerHTML = errorAlert;
-            // Set fallback values
-            document.getElementById('totalItems').textContent = '0';
-            document.getElementById('itemsWithBarcodes').textContent = '0';
-            document.getElementById('itemsWithoutBarcodes').textContent = '0';
-            document.getElementById('completionPercentage').textContent = '0%';
-            document.getElementById('completionProgress').style.width = '0%';
-        });
-}
 </script>
-@endsection
+@endpush
 

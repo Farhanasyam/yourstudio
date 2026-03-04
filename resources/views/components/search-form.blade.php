@@ -90,7 +90,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchForm = document.getElementById('searchForm');
     const tableContainer = document.getElementById('tableContainer');
-    const paginationContainer = document.querySelector('.card-footer');
+    const paginationContainer = document.getElementById('itemsPaginationFooter') || document.querySelector('.card-footer');
     
     // Auto-submit form when filters change
     const filterInputs = document.querySelectorAll('#searchForm select, #searchForm input[type="date"], #searchForm input[type="number"]');
@@ -121,34 +121,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.text())
-        .then(html => {
-            // Create a temporary div to parse the HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            
-            // Extract table content
-            const newTableContainer = tempDiv.querySelector('#tableContainer');
-            if (newTableContainer && tableContainer) {
-                tableContainer.innerHTML = newTableContainer.innerHTML;
+        .then(function(response) {
+            var contentType = response.headers.get('Content-Type') || '';
+            if (contentType.indexOf('application/json') !== -1) {
+                return response.json();
             }
-            
-            // Extract pagination
-            const newPagination = tempDiv.querySelector('.card-footer');
-            if (newPagination && paginationContainer) {
-                paginationContainer.innerHTML = newPagination.innerHTML;
-            } else if (newPagination && !paginationContainer) {
-                // If pagination container doesn't exist, create it
-                const card = tableContainer.closest('.card');
-                if (card) {
-                    const footer = document.createElement('div');
-                    footer.className = 'card-footer';
-                    footer.innerHTML = newPagination.innerHTML;
-                    card.appendChild(footer);
+            return response.text();
+        })
+        .then(function(data) {
+            var paginationContainer = document.getElementById('itemsPaginationFooter') || document.querySelector('.card .card-footer');
+            if (typeof data === 'object' && data !== null && data.html !== undefined) {
+                if (tableContainer) tableContainer.innerHTML = data.html;
+                if (paginationContainer && data.pagination !== undefined) paginationContainer.innerHTML = data.pagination;
+            } else {
+                var html = typeof data === 'string' ? data : '';
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(html, 'text/html');
+                var newTableContainer = doc.getElementById('tableContainer');
+                if (newTableContainer && tableContainer) {
+                    tableContainer.innerHTML = newTableContainer.innerHTML;
+                }
+                var newPagination = doc.getElementById('itemsPaginationFooter') || doc.querySelector('.card-footer');
+                if (newPagination && paginationContainer) {
+                    paginationContainer.innerHTML = newPagination.innerHTML;
+                } else if (newPagination && tableContainer) {
+                    var card = tableContainer.closest('.card');
+                    if (card) {
+                        var footer = document.getElementById('itemsPaginationFooter');
+                        if (!footer) {
+                            footer = document.createElement('div');
+                            footer.className = 'card-footer';
+                            footer.id = 'itemsPaginationFooter';
+                            card.appendChild(footer);
+                        }
+                        footer.innerHTML = newPagination.innerHTML;
+                    }
                 }
             }
-            
-            // Update URL without page reload
             window.history.pushState({}, '', url);
         })
         .catch(error => {
@@ -175,21 +184,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => response.text())
-            .then(html => {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                
-                const newTableContainer = tempDiv.querySelector('#tableContainer');
-                if (newTableContainer && tableContainer) {
-                    tableContainer.innerHTML = newTableContainer.innerHTML;
+            .then(function(response) {
+                var contentType = response.headers.get('Content-Type') || '';
+                if (contentType.indexOf('application/json') !== -1) {
+                    return response.json();
                 }
-                
-                const newPagination = tempDiv.querySelector('.card-footer');
-                if (newPagination && paginationContainer) {
-                    paginationContainer.innerHTML = newPagination.innerHTML;
+                return response.text();
+            })
+            .then(function(data) {
+                var paginationEl = document.getElementById('itemsPaginationFooter') || document.querySelector('.card .card-footer');
+                if (typeof data === 'object' && data !== null && data.html !== undefined) {
+                    if (tableContainer) tableContainer.innerHTML = data.html;
+                    if (paginationEl && data.pagination !== undefined) paginationEl.innerHTML = data.pagination;
+                } else {
+                    var html = typeof data === 'string' ? data : '';
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newTableContainer = doc.getElementById('tableContainer');
+                    if (newTableContainer && tableContainer) {
+                        tableContainer.innerHTML = newTableContainer.innerHTML;
+                    }
+                    var newPagination = doc.getElementById('itemsPaginationFooter') || doc.querySelector('.card-footer');
+                    if (newPagination && paginationEl) {
+                        paginationEl.innerHTML = newPagination.innerHTML;
+                    }
                 }
-                
                 window.history.pushState({}, '', url);
             })
             .catch(error => {

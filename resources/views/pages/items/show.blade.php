@@ -13,6 +13,11 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <h6>Item Details</h6>
                             <div>
+                                @if($item->allBarcodes->isNotEmpty())
+                                    <a href="{{ route('barcodes.print-select', $item) }}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-print"></i> Cetak Barcode
+                                    </a>
+                                @endif
                                 <a href="{{ route('items.edit', $item) }}" class="btn btn-primary btn-sm">
                                     <i class="fas fa-edit"></i> Edit Item
                                 </a>
@@ -166,6 +171,29 @@
                                 </div>
                             </div>
                         </div>
+
+                        {{-- Barcode dari semua tipe --}}
+                        @if($item->allBarcodes->isNotEmpty())
+                            <hr class="horizontal dark">
+                            <h6 class="text-uppercase text-body text-xs font-weight-bolder mb-3">Barcode (Semua Tipe)</h6>
+                            <div class="row">
+                                @foreach($item->allBarcodes as $barcode)
+                                    <div class="col-md-4 col-lg-3 mb-4">
+                                        <div class="card border">
+                                            <div class="card-body p-3 text-center">
+                                                <span class="badge badge-sm bg-gradient-info mb-2">{{ $barcode->barcode_type }}</span>
+                                                <div class="mb-2 item-barcode-wrap d-flex justify-content-center align-items-center" data-value="{{ $barcode->barcode_value }}" data-format="{{ strtoupper($barcode->barcode_type) }}" style="min-height: 60px;"></div>
+                                                <small class="text-muted d-block text-center">{{ $barcode->barcode_value }}</small>
+                                                <a href="{{ route('barcodes.show', $barcode) }}" class="btn btn-link text-primary btn-sm mt-1 p-0">Detail</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <hr class="horizontal dark">
+                            <p class="text-muted text-sm mb-0">Belum ada barcode untuk item ini. Tambah dari menu Barcode.</p>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -173,3 +201,25 @@
         @include('layouts.footers.auth.footer')
     </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.item-barcode-wrap').forEach(function(wrap) {
+            var format = (wrap.getAttribute('data-format') || 'CODE128').toUpperCase();
+            var value = wrap.getAttribute('data-value') || '';
+            if (format === 'QR') {
+                try { new QRCode(wrap, { text: value, width: 100, height: 100 }); } catch (e) {}
+            } else {
+                var canvas = document.createElement('canvas');
+                wrap.appendChild(canvas);
+                try {
+                    JsBarcode(canvas, value, { format: format, width: 1.5, height: 50, displayValue: false });
+                } catch (e) {}
+            }
+        });
+    });
+</script>
+@endpush

@@ -112,6 +112,7 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
 	Route::get('/items/test-import', [ItemController::class, 'testImport'])->name('items.test.import');
 	Route::get('/items/test-clean-price', [ItemController::class, 'testCleanPrice'])->name('items.test.clean-price');
+	Route::get('/items/{item}/print-barcode', [BarcodeController::class, 'printSelect'])->name('barcodes.print-select');
 
 	Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
 	Route::get('/items/{item}/edit', [ItemController::class, 'edit'])->name('items.edit');
@@ -148,6 +149,8 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	// Barcode Management Routes (Admin and Super Admin only)
 	Route::get('/barcodes/create', [BarcodeController::class, 'create'])->name('barcodes.create');
 	Route::post('/barcodes', [BarcodeController::class, 'store'])->name('barcodes.store');
+	Route::post('/barcodes/generate-all-types', [BarcodeController::class, 'generateAllTypes'])->name('barcodes.generate-all-types');
+	Route::post('/barcodes/bulk-generate-all-types', [BarcodeController::class, 'bulkGenerateAllTypes'])->name('barcodes.bulk-generate-all-types');
 	Route::get('/barcodes/bulk-generate', [BarcodeController::class, 'bulkGenerateForm'])->name('barcodes.bulk-generate-form');
 	Route::post('/barcodes/bulk-generate', [BarcodeController::class, 'bulkGenerate'])->name('barcodes.bulk-generate');
 	Route::get('/barcodes/generation-stats', [BarcodeController::class, 'getGenerationStats'])

@@ -49,7 +49,7 @@
                                             <div class="invalid-feedback">{{ $message }}</div>
                                         @enderror
                                         @if($items->isEmpty())
-                                            <small class="form-text text-danger">No items available. All items either have active barcodes or no items exist.</small>
+                                            <small class="form-text text-danger">Belum ada item. Buat item dulu dari menu Items.</small>
                                         @endif
                                     </div>
                                 </div>
