@@ -106,20 +106,18 @@ class SearchController extends Controller
         // Search in transactions
         if ($type === 'all' || $type === 'transactions') {
             $transactions = Transaction::with(['cashier'])
-                ->where(function($q) use ($query) {
-                    $q->where('transaction_number', 'like', "%{$query}%")
-                      ->orWhere('customer_name', 'like', "%{$query}%")
-                      ->orWhere('customer_phone', 'like', "%{$query}%");
-                })
+                ->where('transaction_code', 'like', "%{$query}%")
+                // Kasir may only see their own transactions (same rule as Transaction History)
+                ->when(auth()->user()->isKasir(), fn ($q) => $q->where('cashier_id', auth()->id()))
                 ->limit(5)
                 ->get();
-                
+
             foreach ($transactions as $transaction) {
                 $results[] = [
                     'type' => 'transaction',
                     'id' => $transaction->id,
-                    'title' => $transaction->transaction_number,
-                    'subtitle' => $transaction->customer_name ?? 'Walk-in Customer',
+                    'title' => $transaction->transaction_code,
+                    'subtitle' => $transaction->cashier->name ?? '-',
                     'description' => 'Rp ' . number_format($transaction->total_amount, 0, ',', '.'),
                     'url' => route('transaction-history.show', $transaction),
                     'icon' => 'ni ni-money-coins',

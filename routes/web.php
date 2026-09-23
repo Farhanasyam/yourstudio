@@ -13,21 +13,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
-
-
-
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\PageController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\UserProfileController;
-use App\Http\Controllers\ResetPassword;
-use App\Http\Controllers\ChangePassword;      
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\StockInController;
@@ -37,12 +26,6 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController;
-use App\Http\Controllers\Auth\VerificationController;
-use App\Http\Controllers\Auth\EmailVerificationController;
-use App\Http\Controllers\Auth\EmailVerificationNotificationController;
-use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\TransactionHistoryController;
@@ -56,31 +39,19 @@ Route::get('/', function () {return redirect('/dashboard');})->middleware('auth'
 	Route::post('/register', [RegisterController::class, 'store'])->middleware('guest')->name('register.perform');
 	Route::get('/login', [LoginController::class, 'show'])->middleware('guest')->name('login');
 	Route::post('/login', [LoginController::class, 'login'])->middleware('guest')->name('login.perform');
-	Route::get('/reset-password', [ResetPassword::class, 'show'])->middleware('guest')->name('reset-password');
-	Route::post('/reset-password', [ResetPassword::class, 'send'])->middleware('guest')->name('reset.perform');
-	Route::get('/change-password', [ChangePassword::class, 'show'])->middleware('guest')->name('change-password');
-	Route::post('/change-password', [ChangePassword::class, 'update'])->middleware('guest')->name('change.perform');
 	Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard')->middleware(['auth', 'approved']);
 
 // Routes for all approved users (Basic authenticated routes)
 Route::group(['middleware' => ['auth', 'approved', 'prevent.back']], function () {
-	Route::get('/virtual-reality', [PageController::class, 'vr'])->name('virtual-reality');
-	Route::get('/rtl', [PageController::class, 'rtl'])->name('rtl');
 	Route::get('/profile', [UserProfileController::class, 'show'])->name('profile');
 	Route::post('/profile', [UserProfileController::class, 'update'])->name('profile.update');
-	Route::get('/profile-static', [PageController::class, 'profile'])->name('profile-static'); 
-	Route::get('/sign-in-static', [PageController::class, 'signin'])->name('sign-in-static');
-	Route::get('/sign-up-static', [PageController::class, 'signup'])->name('sign-up-static'); 
-
-
-	
 	Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 });
 
 // Routes for Super Admin Only
 Route::group(['middleware' => ['auth', 'superadmin', 'prevent.back']], function () {
 	// User Management Routes
-	Route::resource('user-management', UserManagementController::class);
+	Route::resource('user-management', UserManagementController::class)->parameters(['user-management' => 'user']);
 	Route::post('/user-management/{user}/approve', [UserManagementController::class, 'approve'])->name('user-management.approve');
 	Route::post('/user-management/{user}/reject', [UserManagementController::class, 'reject'])->name('user-management.reject');
 	Route::post('/user-management/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('user-management.toggle-status');
@@ -94,7 +65,7 @@ Route::group(['middleware' => ['auth', 'superadmin', 'prevent.back']], function 
 });
 
 // Routes for Admin and Super Admin (Inventory Management)
-Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
+Route::group(['middleware' => ['auth', 'approved', 'admin', 'prevent.back']], function () {
 	// Categories CRUD Routes - Admin only
 	Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
 	Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
@@ -110,8 +81,6 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	Route::post('/items', [ItemController::class, 'store'])->name('items.store');
 	Route::get('/items/import', [ItemController::class, 'showImport'])->name('items.import.show');
 	Route::post('/items/import', [ItemController::class, 'import'])->name('items.import');
-	Route::get('/items/test-import', [ItemController::class, 'testImport'])->name('items.test.import');
-	Route::get('/items/test-clean-price', [ItemController::class, 'testCleanPrice'])->name('items.test.clean-price');
 	Route::get('/items/{item}/print-barcode', [BarcodeController::class, 'printSelect'])->name('barcodes.print-select');
 
 	Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
@@ -161,7 +130,6 @@ Route::group(['middleware' => ['auth', 'admin', 'prevent.back']], function () {
 	Route::delete('/barcodes/{barcode}', [BarcodeController::class, 'destroy'])->name('barcodes.destroy');
 	Route::get('/barcodes/{barcode}/generate', [BarcodeController::class, 'generate'])->name('barcodes.generate');
 	Route::post('/barcodes/generate-ajax', [BarcodeController::class, 'generateAjax'])->name('barcodes.generate-ajax');
-	Route::post('/barcodes/bulk-print', [BarcodeController::class, 'bulkPrint'])->name('barcodes.bulk-print');
 });
 
 // Routes for Kasir, Admin, and Super Admin (Sales and Barcode viewing)
@@ -184,24 +152,12 @@ Route::group(['middleware' => ['auth', 'approved', 'prevent.back']], function ()
 	// Kasir Routes
 	Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
 	Route::post('/kasir/search-barcode', [KasirController::class, 'searchByBarcode'])->name('kasir.search-barcode');
-	Route::get('/kasir/test-connection', [KasirController::class, 'testConnection'])->name('kasir.test-connection');
-Route::get('/kasir/test-transaction-model', [KasirController::class, 'testTransactionModel'])->name('kasir.test-transaction-model');
-	Route::post('/kasir/search-name', [KasirController::class, 'searchByName'])->name('kasir.search-name');
-Route::get('/kasir/test-search', [KasirController::class, 'testSearch'])->name('kasir.test-search');
-Route::get('/test-backend', [KasirController::class, 'testSearch'])->name('test.backend');
 	Route::post('/kasir/transaction', [KasirController::class, 'store'])->name('kasir.store');
 	Route::get('/kasir/receipt/{transaction}', [KasirController::class, 'receipt'])->name('kasir.receipt');
-	Route::get('/kasir/today-transactions', [KasirController::class, 'todayTransactions'])->name('kasir.today-transactions');
-	Route::get('/kasir/low-stock-items', [KasirController::class, 'getLowStockItems'])->name('kasir.low-stock-items');
-	Route::get('/kasir/popular-items', [KasirController::class, 'getPopularItems'])->name('kasir.popular-items');
 	
 	// Transaction History Routes
 	Route::get('/transaction-history', [TransactionHistoryController::class, 'index'])->name('transaction-history.index');
 	Route::get('/transaction-history/{transaction}', [TransactionHistoryController::class, 'show'])->name('transaction-history.show');
-	Route::get('/transaction-history/{transaction}/edit', [TransactionHistoryController::class, 'edit'])->name('transaction-history.edit');
-	Route::put('/transaction-history/{transaction}', [TransactionHistoryController::class, 'update'])->name('transaction-history.update');
-	Route::post('/transaction-history/fix-cashier-data', [TransactionHistoryController::class, 'fixCashierData'])->name('transaction-history.fix-cashier-data');
-	Route::post('/transaction-history/fix-transaction-cashier/{transaction}', [TransactionHistoryController::class, 'fixSpecificTransactionCashier'])->name('transaction-history.fix-transaction-cashier');
 	Route::get('/transaction-history-export', [TransactionHistoryController::class, 'export'])->name('transaction-history.export');
 	Route::get('/api/recent-transactions', [TransactionHistoryController::class, 'getRecentTransactions'])->name('api.recent-transactions');
 	Route::post('/transaction-history/bulk-delete', [TransactionHistoryController::class, 'bulkDelete'])->name('transaction-history.bulk-delete');
@@ -223,17 +179,10 @@ Route::group(['middleware' => ['auth', 'approved']], function () {
 });
 
 // System Settings routes (Admin and Super Admin only)
-Route::group(['middleware' => ['auth', 'admin']], function () {
+Route::group(['middleware' => ['auth', 'approved', 'admin']], function () {
     Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
     Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
     Route::get('/settings/{key}', [SystemSettingController::class, 'getValue'])->name('settings.get');
 });
 
-// Fallback route for other pages (approved users only)
-Route::group(['middleware' => ['auth', 'approved']], function () {
-	Route::get('/{page}', [PageController::class, 'index'])->name('page');
-});
 
-// Notification routes
-Route::get('/kasir/notifications', [KasirController::class, 'getNotifications'])->name('kasir.notifications');
-Route::delete('/kasir/notifications', [KasirController::class, 'clearNotifications'])->name('kasir.clearNotifications');

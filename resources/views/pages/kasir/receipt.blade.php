@@ -599,14 +599,29 @@
                 <div class="logo">
                     <img src="{{ asset('img/strukyourstudio.png') }}" alt="YOUR STUDIO">
                 </div>
-                <div class="store-name">YOUR STUDIO</div>
+                @php
+                    // Store details come from System Settings
+                    $storeName = $systemSettings['store_name'] ?? 'YOUR STUDIO';
+                    $storeAddress = $systemSettings['store_address'] ?? '';
+                    $storePhone = $systemSettings['store_phone'] ?? '';
+                    $storeInstagram = $systemSettings['store_instagram'] ?? '';
+                    $receiptHeader = $systemSettings['receipt_header'] ?? '';
+                    $receiptFooter = $systemSettings['receipt_footer'] ?? '';
+                    $autoPrint = filter_var($systemSettings['auto_print_receipt'] ?? true, FILTER_VALIDATE_BOOLEAN);
+                @endphp
+                <div class="store-name">{{ $storeName }}</div>
+                @if($storeAddress !== '' || $storePhone !== '')
                 <div class="store-info">
-                    Jl. Raya Sawojajar Ruko WOW Paris<br>
-                    Kav PA-1 12, Malang
+                    @if($storeAddress !== ''){{ $storeAddress }}@endif
+                    @if($storeAddress !== '' && $storePhone !== '')<br>@endif
+                    @if($storePhone !== '')Telp. {{ $storePhone }}@endif
                 </div>
+                @endif
+                @if($storeInstagram !== '')
                 <div class="social-info">
-                    <i class="fab fa-instagram"></i> @your__studio
+                    <i class="fab fa-instagram"></i> {{ $storeInstagram }}
                 </div>
+                @endif
             </div>
 
             <div class="separator"></div>
@@ -629,7 +644,7 @@
                     <div class="info-icon"><i class="fas fa-user"></i></div>
                     <span class="info-label">Kasir</span>
                     <span class="info-colon">:</span>
-                    <span class="info-value">{{ $transaction->cashier->name }}</span>
+                    <span class="info-value">{{ $transaction->cashier->name ?? '-' }}</span>
                 </div>
             </div>
 
@@ -677,18 +692,20 @@
 
             <div class="separator"></div>
 
-            <!-- Slogan -->
+            <!-- Header text from settings (shown as the slogan) -->
+            @if($receiptHeader !== '')
             <div class="slogan">
-                "Create your own studio"
+                "{{ $receiptHeader }}"
             </div>
+            @endif
 
             <!-- Footer -->
             <div class="footer">
+                @if($receiptFooter !== '')
                 <div class="thank-you">
-                    ✨ Terima kasih telah berbelanja ✨<br>
-                    di YOUR STUDIO<br>
-                    Sampai jumpa lagi! 😊
+                    {!! nl2br(e($receiptFooter)) !!}
                 </div>
+                @endif
                 <div class="date-time">
                     <i class="far fa-clock"></i>
                     Dicetak pada {{ now()->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s') }} WIB
@@ -710,9 +727,11 @@
     </div>
 
     <script>
-        // Auto print when page loads
+        // Auto print after a sale follows System Settings > Cetak Struk Otomatis.
+        // A reprint ("Cetak Ulang", ?copy=1) was explicitly requested, so it always opens the print dialog.
+        const AUTO_PRINT = @json($autoPrint || (isset($isCopy) && $isCopy));
         window.onload = function() {
-            // Auto print after 1 second
+            if (!AUTO_PRINT) return;
             setTimeout(() => {
                 window.print();
             }, 1000);

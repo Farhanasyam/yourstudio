@@ -68,4 +68,32 @@
             return result.isConfirmed ? result.value : null;
         });
     };
+
+    // Shorthands used by several pages (items, import, barcodes)
+    window.showSuccessAlert = function(message) { swalNotify(message, 'success'); };
+    window.showErrorAlert = function(message) { swalNotify(message, 'error'); };
+    window.showWarningAlert = function(message) { swalNotify(message, 'warning'); };
+    window.showInfoAlert = function(message) { swalNotify(message, 'info'); };
+
+    /**
+     * Konfirmasi sebelum submit form dari tombol submit.
+     * Pemakaian: <button type="submit" onclick="return confirmButtonSubmit(this, 'Pesan?', 'Judul')">
+     * Selalu mencegah submit langsung, lalu submit form hanya jika user menekan "Ya".
+     */
+    window.confirmButtonSubmit = function(button, text, title) {
+        Swal.fire({
+            title: title || 'Konfirmasi',
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then(function(result) {
+            if (result.isConfirmed && button.form) {
+                button.form.submit();
+            }
+        });
+        return false;
+    };
 })();

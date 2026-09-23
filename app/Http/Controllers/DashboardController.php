@@ -20,8 +20,13 @@ class DashboardController extends Controller
         // Get total counts
         $totalItems = Item::count();
         $totalCategories = Category::count();
-        $totalSuppliers = Supplier::count();
+        $totalSuppliers = Supplier::where('is_active', true)->count();
         $totalUsers = User::count();
+
+        // Real totals (the lists below are limited, so their count() can't be used for the cards)
+        $lowStockCount = Item::whereColumn('stock_quantity', '<=', 'minimum_stock')->count();
+        $outOfStockCount = Item::where('stock_quantity', '<=', 0)->count();
+        $recentDeliveriesCount = StockIn::where('transaction_date', '>=', now()->subDays(30)->toDateString())->count();
         
         // Get recent transactions with details
         $recentSales = Transaction::with(['cashier', 'transactionItems.item'])
@@ -41,10 +46,12 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
             
-        // Get low stock items (items with stock_quantity less than minimum_stock)
-        $lowStockItems = Item::where('stock_quantity', '<=', DB::raw('minimum_stock'))
+        // Low stock items (stock at or below minimum), out-of-stock ones first
+        $lowStockItems = Item::with('category:id,name')
+            ->whereColumn('stock_quantity', '<=', 'minimum_stock')
             ->orderBy('stock_quantity', 'asc')
-            ->limit(5)
+            ->orderBy('name')
+            ->limit(10)
             ->get();
             
         // Get sales statistics for the current month
@@ -88,6 +95,9 @@ class DashboardController extends Controller
             'recentStockIns',
             'recentAdjustments',
             'lowStockItems',
+            'lowStockCount',
+            'outOfStockCount',
+            'recentDeliveriesCount',
             'currentMonthSales',
             'totalSales',
             'itemsByCategory',

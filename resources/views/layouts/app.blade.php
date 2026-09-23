@@ -19,6 +19,37 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- CSS Files -->
     <link id="pagestyle" href="/assets/css/argon-dashboard.css" rel="stylesheet" />
+    <link href="/assets/css/responsive-tables.css" rel="stylesheet" />
+    <style>
+        /* Sidebar: always use native scrolling so every menu stays reachable on small/touch screens.
+           PerfectScrollbar (enabled on Windows) forces overflow:hidden via .ps, which cuts off the menu. */
+        #sidenav-main,
+        #sidenav-main.ps {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            max-height: calc(100vh - 1rem);
+        }
+        #sidenav-main .navbar-collapse,
+        #sidenav-main .navbar-collapse.ps {
+            height: auto !important;
+            overflow: visible !important;
+            padding-bottom: 1rem;
+        }
+        #sidenav-main > .ps__rail-x,
+        #sidenav-main > .ps__rail-y,
+        #sidenav-main .navbar-collapse > .ps__rail-x,
+        #sidenav-main .navbar-collapse > .ps__rail-y {
+            display: none !important;
+        }
+        @media (max-width: 1199.98px) {
+            /* Close button inside the sidebar on mobile */
+            .g-sidenav-pinned #iconSidenav {
+                display: block !important;
+            }
+        }
+    </style>
 </head>
 
 <body class="{{ $class ?? '' }}">
@@ -28,12 +59,12 @@
     @endguest
 
     @auth
-        @if (in_array(request()->route()->getName(), ['sign-in-static', 'sign-up-static', 'login', 'register', 'recover-password', 'rtl', 'virtual-reality']))
+        @if (in_array(request()->route()->getName(), ['login', 'register']))
             @yield('content')
         @else
-            @if (!in_array(request()->route()->getName(), ['profile', 'profile-static']))
+            @if (!in_array(request()->route()->getName(), ['profile']))
                 <div class="min-height-300 bg-primary position-absolute w-100"></div>
-            @elseif (in_array(request()->route()->getName(), ['profile-static', 'profile']))
+            @elseif (in_array(request()->route()->getName(), ['profile']))
                 <div class="position-absolute w-100 min-height-300 top-0" style="background-image: url('https://raw.githubusercontent.com/creativetimofficial/public-assets/master/argon-dashboard-pro/assets/img/profile-layout-header.jpg'); background-position-y: 50%;">
                     <span class="mask bg-primary opacity-6"></span>
                 </div>
@@ -66,7 +97,16 @@
     <script async defer src="https://buttons.github.io/buttons.js"></script>
     <!-- Control Center for Soft Dashboard: parallax effects, scripts for the example pages etc -->
     <script src="/assets/js/argon-dashboard.js"></script>
-    
+    <script>
+        // argon-dashboard.js closes the mobile sidebar on any click whose target isn't one of the
+        // hamburger's line elements, so tapping the gap between the lines (or empty space inside
+        // the sidebar) opened and immediately closed it. Keep those clicks from reaching <html>.
+        ['iconNavbarSidenav', 'sidenav-main'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('click', function (e) { e.stopPropagation(); });
+        });
+    </script>
+
     <!-- Prevent Back Button After Login -->
     @auth
     <script>
@@ -90,8 +130,11 @@
     <!-- Sweet Alert Delete & Helpers -->
     <script src="/assets/js/sweet-alert-delete.js"></script>
     <script src="/assets/js/swal-helpers.js"></script>
+    <script src="/assets/js/responsive-tables.js"></script>
 
     @stack('scripts')
+    {{-- Several pages (sales charts, report form, transaction edit, user filters) push to "js" --}}
+    @stack('js')
 </body>
 
 </html>

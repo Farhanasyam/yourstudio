@@ -61,6 +61,15 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "audit": {
+            "ignore": {
+                "PKSA-m5cs-t1y6-qpcs": "Laravel 10 EOL: fix only in 12.61+. Signed temporary URLs path confusion.",
+                "PKSA-3r5d-mb8f-1qw9": "Laravel 10 EOL: fix only in 12.60+. CRLF in email validation rule.",
+                "PKSA-mdq4-51ck-6kdq": "Laravel 10 EOL: fix only in 12.60+. CRLF in email validation rule.",
+                "PKSA-8qx3-n5y5-vvnd": "Laravel 10 EOL: no patched 10.x release.",
+                "PKSA-w7xr-vk7n-rstm": "Laravel 10 EOL: no patched 10.x release."
+            }
         }
     },
     "minimum-stability": "stable",

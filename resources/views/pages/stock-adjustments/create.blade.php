@@ -98,27 +98,11 @@
                                         <select class="form-control @error('reason') is-invalid @enderror" 
                                                 id="reason" name="reason" required>
                                             <option value="">Select Reason</option>
-                                            <option value="Stock Take Adjustment" {{ old('reason') == 'Stock Take Adjustment' ? 'selected' : '' }}>
-                                                Stock Take Adjustment
-                                            </option>
-                                            <option value="Damaged Items" {{ old('reason') == 'Damaged Items' ? 'selected' : '' }}>
-                                                Damaged Items
-                                            </option>
-                                            <option value="Expired Items" {{ old('reason') == 'Expired Items' ? 'selected' : '' }}>
-                                                Expired Items
-                                            </option>
-                                            <option value="Lost Items" {{ old('reason') == 'Lost Items' ? 'selected' : '' }}>
-                                                Lost Items
-                                            </option>
-                                            <option value="Found Items" {{ old('reason') == 'Found Items' ? 'selected' : '' }}>
-                                                Found Items
-                                            </option>
-                                            <option value="System Error Correction" {{ old('reason') == 'System Error Correction' ? 'selected' : '' }}>
-                                                System Error Correction
-                                            </option>
-                                            <option value="Other" {{ old('reason') == 'Other' ? 'selected' : '' }}>
-                                                Other
-                                            </option>
+                                            @foreach(\App\Models\StockAdjustment::REASONS as $value => $label)
+                                                <option value="{{ $value }}" {{ old('reason') == $value ? 'selected' : '' }}>
+                                                    {{ $label }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                         @error('reason')
                                             <div class="invalid-feedback">{{ $message }}</div>

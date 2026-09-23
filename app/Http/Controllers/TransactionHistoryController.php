@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use App\Models\User; // Added this import for the fixCashierData method
 
 class TransactionHistoryController extends Controller
 {
@@ -60,124 +59,6 @@ class TransactionHistoryController extends Controller
     }
 
     /**
-     * Fix cashier data for transactions
-     */
-    public function fixCashierData()
-    {
-        $user = Auth::user();
-        
-        // Only admin and superadmin can fix data
-        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        try {
-            $fixedCount = 0;
-            
-            // Get transactions with missing or invalid cashier_id
-            $transactions = Transaction::whereNull('cashier_id')
-                                     ->orWhereNotExists(function ($query) {
-                                         $query->select(DB::raw(1))
-                                               ->from('users')
-                                               ->whereRaw('users.id = transactions.cashier_id');
-                                     })
-                                     ->get();
-
-            foreach ($transactions as $transaction) {
-                // Try to find a valid user to assign as cashier
-                // First try to find an admin user
-                $adminUser = User::where('role', 'admin')
-                                ->where('is_active', true)
-                                ->where('approval_status', 'approved')
-                                ->first();
-                
-                if ($adminUser) {
-                    $transaction->update(['cashier_id' => $adminUser->id]);
-                    $fixedCount++;
-                } else {
-                    // If no admin, try to find any active approved user
-                    $anyUser = User::where('is_active', true)
-                                  ->where('approval_status', 'approved')
-                                  ->first();
-                    
-                    if ($anyUser) {
-                        $transaction->update(['cashier_id' => $anyUser->id]);
-                        $fixedCount++;
-                    }
-                }
-            }
-
-            // Also check for transactions that might have wrong cashier_id
-            // This could happen if transactions were created with wrong user context
-            // Look for transactions that have cashier_id pointing to "Your Studio (Main)" or similar
-            $wrongCashierTransactions = Transaction::whereHas('cashier', function($query) {
-                                                $query->where('name', 'like', '%Your Studio%')
-                                                      ->orWhere('name', 'like', '%Main%');
-                                            })
-                                            ->get();
-            
-            // Also check for transactions that don't match current user (for admin/superadmin)
-            if ($user->isAdmin() || $user->isSuperAdmin()) {
-                $userMismatchTransactions = Transaction::where('cashier_id', '!=', $user->id)
-                                                      ->whereNotIn('id', $wrongCashierTransactions->pluck('id'))
-                                                      ->get();
-                $wrongCashierTransactions = $wrongCashierTransactions->merge($userMismatchTransactions);
-            }
-            
-            foreach ($wrongCashierTransactions as $transaction) {
-                // Only fix if the current user is admin/superadmin
-                if ($user->isAdmin() || $user->isSuperAdmin()) {
-                    $transaction->update(['cashier_id' => $user->id]);
-                    $fixedCount++;
-                }
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => "Fixed {$fixedCount} transactions",
-                'fixed_count' => $fixedCount
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error fixing cashier data: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Fix specific transaction cashier data
-     */
-    public function fixSpecificTransactionCashier($transactionId)
-    {
-        $user = Auth::user();
-        
-        // Only admin and superadmin can fix data
-        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        try {
-            $transaction = Transaction::findOrFail($transactionId);
-            
-            // Update the cashier_id to current user
-            $transaction->update(['cashier_id' => $user->id]);
-
-            return response()->json([
-                'success' => true,
-                'message' => "Transaction {$transaction->transaction_code} cashier updated to {$user->name}",
-                'transaction_code' => $transaction->transaction_code,
-                'new_cashier' => $user->name
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Error fixing transaction cashier: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
      * Show transaction detail
      */
     public function show($id)
@@ -194,96 +75,6 @@ class TransactionHistoryController extends Controller
         $transaction = $query->findOrFail($id);
 
         return view('pages.transaction-history.show', compact('transaction'));
-    }
-
-    /**
-     * Show edit transaction form
-     */
-    public function edit($id)
-    {
-        $user = Auth::user();
-        
-        $query = Transaction::with(['transactionItems.item', 'cashier']);
-        
-        // Filter by user role
-        if ($user->isKasir()) {
-            $query->where('cashier_id', $user->id);
-        }
-        
-        $transaction = $query->findOrFail($id);
-
-        return view('pages.transaction-history.edit', compact('transaction'));
-    }
-
-    /**
-     * Update transaction
-     */
-    public function update(Request $request, $id)
-    {
-        $user = Auth::user();
-        
-        $query = Transaction::with(['transactionItems.item', 'cashier']);
-        
-        // Filter by user role
-        if ($user->isKasir()) {
-            $query->where('cashier_id', $user->id);
-        }
-        
-        $transaction = $query->findOrFail($id);
-
-        $request->validate([
-            'items' => 'required|array',
-            'items.*.id' => 'required|exists:transaction_items,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $totalAmount = 0;
-            
-            foreach ($request->items as $itemData) {
-                $transactionItem = $transaction->transactionItems()->findOrFail($itemData['id']);
-                $item = $transactionItem->item;
-                
-                // Calculate old and new quantities
-                $oldQuantity = $transactionItem->quantity;
-                $newQuantity = $itemData['quantity'];
-                $quantityDifference = $newQuantity - $oldQuantity;
-                
-                // Check if we have enough stock for increase
-                if ($quantityDifference > 0 && $item->stock_quantity < $quantityDifference) {
-                    throw new \Exception("Stok tidak cukup untuk item {$item->name}. Stok tersedia: {$item->stock_quantity}");
-                }
-                
-                // Update transaction item
-                $transactionItem->update([
-                    'quantity' => $newQuantity,
-                    'subtotal' => $item->selling_price * $newQuantity
-                ]);
-                
-                // Update stock
-                if ($quantityDifference != 0) {
-                    $item->decrement('stock_quantity', $quantityDifference);
-                }
-                
-                $totalAmount += $transactionItem->subtotal;
-            }
-            
-            // Update transaction total
-            $transaction->update([
-                'subtotal' => $totalAmount,
-                'total_amount' => $totalAmount - $transaction->discount_amount + $transaction->tax_amount
-            ]);
-            
-            DB::commit();
-            
-            return redirect()->route('transaction-history.show', $transaction->id)
-                           ->with('success', 'Transaksi berhasil diperbarui!');
-                           
-        } catch (\Exception $e) {
-            DB::rollback();
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
     }
 
     /**
@@ -312,23 +103,14 @@ class TransactionHistoryController extends Controller
             foreach ($transactionIds as $transactionId) {
                 try {
                     $transaction = Transaction::find($transactionId);
-                    
+
                     if ($transaction) {
-                        // Force delete all related data without checking constraints
-                        DB::statement('SET FOREIGN_KEY_CHECKS = 0');
-                        
-                        try {
-                            // Delete related transaction items
-                            DB::table('transaction_items')->where('transaction_id', $transactionId)->delete();
-                            
-                            // Now delete the transaction
+                        DB::transaction(function () use ($transaction) {
+                            $this->restoreStock($transaction->id);
+                            DB::table('transaction_items')->where('transaction_id', $transaction->id)->delete();
                             $transaction->delete();
-                            $deletedCount++;
-                            
-                        } finally {
-                            // Re-enable foreign key checks
-                            DB::statement('SET FOREIGN_KEY_CHECKS = 1');
-                        }
+                        });
+                        $deletedCount++;
                     } else {
                         $errors[] = "Transaction with ID {$transactionId} not found.";
                     }
@@ -388,24 +170,17 @@ class TransactionHistoryController extends Controller
                 ]);
             }
 
-            // Force delete all related data without checking constraints
-            DB::statement('SET FOREIGN_KEY_CHECKS = 0');
-            
-            try {
-                // Delete all transaction items
-                DB::table('transaction_items')->truncate();
-                
-                // Delete all transactions
-                Transaction::truncate();
-                
-                // Reset auto-increment counters
-                DB::statement('ALTER TABLE transactions AUTO_INCREMENT = 1');
-                DB::statement('ALTER TABLE transaction_items AUTO_INCREMENT = 1');
-                
-            } finally {
-                // Re-enable foreign key checks
-                DB::statement('SET FOREIGN_KEY_CHECKS = 1');
-            }
+            // Return sold quantities to stock and delete everything atomically
+            // (DELETE instead of TRUNCATE: TRUNCATE auto-commits and can't be rolled back)
+            DB::transaction(function () {
+                $this->restoreStock();
+                DB::table('transaction_items')->delete();
+                DB::table('transactions')->delete();
+            });
+
+            // Reset auto-increment counters
+            DB::statement('ALTER TABLE transactions AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE transaction_items AUTO_INCREMENT = 1');
 
             return response()->json([
                 'success' => true,
@@ -418,6 +193,25 @@ class TransactionHistoryController extends Controller
                 'success' => false,
                 'message' => 'Error deleting all transactions: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Put the quantities of completed sales back into item stock.
+     * Pass a transaction id to restore a single transaction, or null for all of them.
+     */
+    private function restoreStock($transactionId = null)
+    {
+        $sold = DB::table('transaction_items')
+            ->join('transactions', 'transactions.id', '=', 'transaction_items.transaction_id')
+            ->where('transactions.status', 'completed')
+            ->when($transactionId, fn ($q) => $q->where('transactions.id', $transactionId))
+            ->groupBy('transaction_items.item_id')
+            ->select('transaction_items.item_id', DB::raw('SUM(transaction_items.quantity) as qty'))
+            ->get();
+
+        foreach ($sold as $row) {
+            DB::table('items')->where('id', $row->item_id)->increment('stock_quantity', (int) $row->qty);
         }
     }
 
@@ -515,7 +309,7 @@ class TransactionHistoryController extends Controller
                 fputcsv($file, [
                     $transaction->transaction_code,
                     $transaction->transaction_date->format('d/m/Y H:i:s'),
-                    $transaction->cashier->name,
+                    $transaction->cashier->name ?? '-',
                     $transaction->transactionItems->sum('quantity'),
                     number_format($transaction->subtotal, 0, ',', '.'),
                     number_format($transaction->discount_amount, 0, ',', '.'),

@@ -99,21 +99,10 @@
                                         <select class="form-control @error('reason') is-invalid @enderror" 
                                                 id="reason" name="reason" required>
                                             <option value="">Select Reason</option>
-                                            @php
-                                                $reasons = [
-                                                    'Stock Take Adjustment',
-                                                    'Damaged Items',
-                                                    'Expired Items',
-                                                    'Lost Items',
-                                                    'Found Items',
-                                                    'System Error Correction',
-                                                    'Other'
-                                                ];
-                                            @endphp
-                                            @foreach($reasons as $reasonOption)
-                                                <option value="{{ $reasonOption }}" 
-                                                        {{ (old('reason', $stockAdjustment->reason) == $reasonOption) ? 'selected' : '' }}>
-                                                    {{ $reasonOption }}
+                                            @foreach(\App\Models\StockAdjustment::REASONS as $value => $label)
+                                                <option value="{{ $value }}"
+                                                        {{ (old('reason', $stockAdjustment->reason) == $value) ? 'selected' : '' }}>
+                                                    {{ $label }}
                                                 </option>
                                             @endforeach
                                         </select>

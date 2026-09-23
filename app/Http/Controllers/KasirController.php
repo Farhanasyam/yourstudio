@@ -8,6 +8,7 @@ use App\Models\Item;
 use App\Models\Barcode;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -78,6 +79,14 @@ class KasirController extends Controller
             });
 
             if ($responseData !== null) {
+                if ($responseData['selling_price'] <= 0) {
+                    Cache::forget($cacheKey);
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Harga jual {$responseData['name']} belum diatur. Atur harga di menu Items.",
+                        'type' => 'error'
+                    ]);
+                }
                 if ($responseData['stock_quantity'] <= 0) {
                     Cache::forget($cacheKey);
                     return response()->json([
@@ -129,63 +138,111 @@ class KasirController extends Controller
                 ], 400);
             }
 
-            if (!$request->has('total_amount') || $request->total_amount <= 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Total amount tidak valid'
-                ], 400);
+            $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|integer',
+                'items.*.quantity' => 'required|integer|min:1',
+            ]);
+
+            // Merge duplicate lines so stock is checked against the combined quantity
+            $quantities = [];
+            foreach ($request->items as $itemData) {
+                $quantities[$itemData['id']] = ($quantities[$itemData['id']] ?? 0) + (int) $itemData['quantity'];
             }
 
             DB::beginTransaction();
 
             try {
+                // Lock the rows so two cashiers can't sell the same last unit at once
+                $items = Item::whereIn('id', array_keys($quantities))
+                    ->where('is_active', true)
+                    ->lockForUpdate()
+                    ->get(['id', 'name', 'sku', 'barcode', 'selling_price', 'stock_quantity', 'minimum_stock', 'unit'])
+                    ->keyBy('id');
+
+                // Prices and stock always come from the database, never from the browser
+                $total = 0;
+                foreach ($quantities as $itemId => $qty) {
+                    $item = $items->get($itemId);
+                    if (!$item) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Produk tidak ditemukan atau tidak aktif'], 422);
+                    }
+                    if ((float) $item->selling_price <= 0) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Harga jual {$item->name} belum diatur. Atur harga di menu Items."
+                        ], 422);
+                    }
+                    if ($item->stock_quantity < $qty) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Stok {$item->name} tidak cukup. Tersedia: {$item->stock_quantity}, diminta: {$qty}"
+                        ], 422);
+                    }
+                    $total += (float) $item->selling_price * $qty;
+                }
+
+                $paid = (float) ($request->paid_amount ?? $total);
+                if ($paid < $total) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Pembayaran kurang dari total belanja (Rp ' . number_format($total, 0, ',', '.') . ')'
+                    ], 422);
+                }
+
                 $paymentMethod = $this->convertPaymentMethod($request->payment_method ?? 'cash');
                 $transactionCode = 'TRX-' . date('YmdHis') . '-' . rand(1000, 9999);
 
                 $transaction = Transaction::create([
                     'transaction_code' => $transactionCode,
                     'transaction_date' => now(),
-                    'subtotal' => $request->total_amount,
+                    'subtotal' => $total,
                     'discount_amount' => 0,
                     'tax_amount' => 0,
-                    'total_amount' => $request->total_amount,
-                    'paid_amount' => $request->paid_amount ?? $request->total_amount,
-                    'change_amount' => $request->change_amount ?? 0,
+                    'total_amount' => $total,
+                    'paid_amount' => $paid,
+                    'change_amount' => $paid - $total,
                     'payment_method' => $paymentMethod,
                     'cashier_id' => Auth::id(),
                     'status' => 'completed'
                 ]);
 
-                $itemIds = array_column($request->items, 'id');
-                $items = Item::whereIn('id', $itemIds)->get(['id', 'barcode'])->keyBy('id');
-                $barcodesByItem = Barcode::whereIn('item_id', $itemIds)->where('is_active', true)->get(['item_id', 'barcode_value'])->groupBy('item_id');
+                $barcodesByItem = Barcode::whereIn('item_id', $items->keys())->where('is_active', true)->get(['item_id', 'barcode_value'])->groupBy('item_id');
+                $stockBefore = [];
 
-                foreach ($request->items as $itemData) {
+                foreach ($quantities as $itemId => $qty) {
+                    $item = $items->get($itemId);
+                    $stockBefore[$item->id] = $item->stock_quantity;
+
                     TransactionItem::create([
                         'transaction_id' => $transaction->id,
-                        'item_id' => $itemData['id'],
-                        'item_name' => $itemData['name'],
-                        'item_sku' => '',
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'item_sku' => $item->sku ?? '',
                         'barcode_scanned' => '',
-                        'quantity' => $itemData['quantity'],
-                        'unit_price' => $itemData['price'],
+                        'quantity' => $qty,
+                        'unit_price' => $item->selling_price,
                         'discount_per_item' => 0,
-                        'subtotal' => $itemData['subtotal']
+                        'subtotal' => (float) $item->selling_price * $qty
                     ]);
 
-                    $item = $items->get($itemData['id']);
-                    if ($item) {
-                        $item->decrement('stock_quantity', (int) $itemData['quantity']);
-                        if ($item->barcode) {
-                            Cache::forget('kasir_barcode_' . $item->barcode);
-                        }
-                        foreach ($barcodesByItem->get($item->id, []) as $b) {
-                            Cache::forget('kasir_barcode_' . $b->barcode_value);
-                        }
+                    $item->decrement('stock_quantity', $qty);
+                    if ($item->barcode) {
+                        Cache::forget('kasir_barcode_' . $item->barcode);
+                    }
+                    foreach ($barcodesByItem->get($item->id, []) as $b) {
+                        Cache::forget('kasir_barcode_' . $b->barcode_value);
                     }
                 }
 
                 DB::commit();
+
+                // After commit, so a rolled-back sale never produces a notification
+                $this->notifyLowStock($items, $stockBefore);
 
                 return response()->json([
                     'success' => true,
@@ -214,6 +271,45 @@ class KasirController extends Controller
                     'line' => $e->getLine()
                 ] : null
             ], 500);
+        }
+    }
+
+    /**
+     * Notify admins about items whose stock just dropped to (or below) their limit in this sale.
+     * Only the sale that crosses the limit notifies, so later sales don't repeat the alert.
+     * The limit is the item's minimum stock, or the "Batas Stok Minimum" setting when the item has none.
+     */
+    private function notifyLowStock($items, array $stockBefore)
+    {
+        try {
+            if (!SystemSetting::get('enable_low_stock_notification', true)) {
+                return;
+            }
+
+            $defaultLimit = (int) SystemSetting::get('low_stock_threshold', 10);
+
+            $crossed = $items->filter(function ($item) use ($stockBefore, $defaultLimit) {
+                $limit = $item->minimum_stock > 0 ? $item->minimum_stock : $defaultLimit;
+                return $stockBefore[$item->id] > $limit && $item->stock_quantity <= $limit;
+            });
+
+            if ($crossed->isEmpty()) {
+                return;
+            }
+
+            $recipients = User::whereIn('role', ['admin', 'superadmin'])
+                ->where('is_active', true)
+                ->where('approval_status', 'approved')
+                ->get();
+
+            foreach ($crossed as $item) {
+                foreach ($recipients as $user) {
+                    $user->notify(new LowStockNotification($item));
+                }
+            }
+        } catch (\Exception $e) {
+            // The sale is already saved; a notification problem must not turn it into an error
+            Log::error('Low stock notification failed: ' . $e->getMessage());
         }
     }
 

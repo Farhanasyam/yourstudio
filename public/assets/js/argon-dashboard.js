@@ -2233,7 +2233,7 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
     ;
 
-    if (document.getElementsByClassName('navbar-collapse')[0]) {
+    if (document.querySelector('.navbar:not(.navbar-expand-lg) .navbar-collapse')) {
       var fixedplugin = document.querySelector('.navbar:not(.navbar-expand-lg) .navbar-collapse');
       var ps2 = new PerfectScrollbar(fixedplugin);
     }
@@ -2693,6 +2693,7 @@ var total = document.querySelectorAll('.nav-pills');
 total.forEach(function (item, i) {
   var moving_div = document.createElement('div');
   var first_li = item.querySelector('li:first-child .nav-link');
+  if (!first_li) return; // not a <li>-based pill list (e.g. Bootstrap vertical button pills)
   var tab = first_li.cloneNode();
   tab.innerHTML = "-";
   moving_div.classList.add('moving-tab', 'position-absolute', 'nav-link');

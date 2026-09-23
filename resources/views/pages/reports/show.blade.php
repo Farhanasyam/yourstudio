@@ -204,7 +204,8 @@
                         <table class="table align-items-center mb-0" id="dataTable">
                             <thead>
                                 <tr>
-                                    @foreach(array_keys((array) $report->data['data'][0]) as $header)
+                                    {{-- first row by position: older low-stock reports were saved with non-sequential keys --}}
+                                    @foreach(array_keys((array) collect($report->data['data'])->first()) as $header)
                                         @if($header !== 'category_id')
                                         <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                                             {{ ucwords(str_replace('_', ' ', $header)) }}

@@ -169,12 +169,18 @@ class UserManagementController extends Controller
     public function destroy(User $user)
     {
         if ($user->isSuperAdmin()) {
-            abort(404);
+            return redirect()->route('user-management.index')->with('error', 'Super Admin tidak dapat dihapus.');
         }
 
         if ($user->id === Auth::id()) {
             return redirect()->route('user-management.index')
                             ->with('error', 'Anda tidak dapat menghapus akun sendiri.');
+        }
+
+        // Foreign keys cascade: deleting a user would also delete their transactions and stock history.
+        if ($user->transactions()->exists() || $user->stockIns()->exists() || $user->stockAdjustments()->exists()) {
+            return redirect()->route('user-management.index')
+                            ->with('error', 'User tidak dapat dihapus karena memiliki riwayat transaksi/stok. Nonaktifkan user sebagai gantinya.');
         }
 
         $user->delete();
@@ -212,7 +218,7 @@ class UserManagementController extends Controller
     public function reject(User $user)
     {
         if ($user->isSuperAdmin()) {
-            abort(404);
+            return redirect()->back()->with('error', 'Super Admin tidak dapat ditolak.');
         }
 
         $user->update([
@@ -235,7 +241,7 @@ class UserManagementController extends Controller
     public function toggleStatus(User $user)
     {
         if ($user->isSuperAdmin()) {
-            abort(404);
+            return redirect()->back()->with('error', 'Super Admin tidak dapat dinonaktifkan.');
         }
 
         if ($user->id === Auth::id()) {

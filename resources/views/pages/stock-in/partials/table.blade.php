@@ -56,30 +56,22 @@
                         </span>
                     </td>
                     <td class="align-middle">
-                        <div class="dropdown">
-                            <a href="#" class="btn btn-link text-dark p-0 mb-0" data-bs-toggle="dropdown">
-                                <i class="fas fa-ellipsis-v text-xs"></i>
+                        {{-- Inline icon actions: a dropdown here widened the table with its hidden menu --}}
+                        <div class="d-flex align-items-center gap-1">
+                            <a href="{{ route('stock-in.show', $stockIn) }}" class="btn btn-link text-info p-1 mb-0" title="View">
+                                <i class="fas fa-eye text-sm"></i>
                             </a>
-                            <div class="dropdown-menu">
-                                <a class="dropdown-item" href="{{ route('stock-in.show', $stockIn) }}">
-                                    <i class="fas fa-eye me-2"></i> View
-                                </a>
-                                @if($stockIn->status !== 'completed')
-                                    <a class="dropdown-item" href="{{ route('stock-in.edit', $stockIn) }}">
-                                        <i class="fas fa-edit me-2"></i> Edit
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <form action="{{ route('stock-in.destroy', $stockIn) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-link text-danger font-weight-bold text-xs" 
-                                                onclick="return showConfirmDialog('Are you sure you want to delete this stock in transaction?', 'Confirm Delete', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })" 
-                                                data-toggle="tooltip" data-original-title="Delete stock in">
-                                            <i class="fas fa-trash text-xs me-1"></i>Delete
-                                        </button>
-                                    </form>
-                                @endif
-                            </div>
+                            <a href="{{ route('stock-in.edit', $stockIn) }}" class="btn btn-link text-secondary p-1 mb-0" title="Edit">
+                                <i class="fas fa-pencil-alt text-sm"></i>
+                            </a>
+                            <form id="delete-stock-in-{{ $stockIn->id }}" action="{{ route('stock-in.destroy', $stockIn) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="button" class="btn btn-link text-danger p-1 mb-0" title="Delete"
+                                        onclick="deleteConfirmation('delete-stock-in-{{ $stockIn->id }}')">
+                                    <i class="fas fa-trash text-sm"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>

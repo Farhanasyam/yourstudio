@@ -65,7 +65,9 @@
                                                         @switch($setting->type)
                                                             @case('boolean')
                                                                 <div class="form-check form-switch">
-                                                                    <input class="form-check-input" 
+                                                                    {{-- Unchecked checkboxes are not submitted; this makes "off" reach the server --}}
+                                                                    <input type="hidden" name="settings[{{ $setting->key }}]" value="0">
+                                                                    <input class="form-check-input"
                                                                            type="checkbox" 
                                                                            name="settings[{{ $setting->key }}]" 
                                                                            id="{{ $setting->key }}"

@@ -16,7 +16,7 @@ class SystemSettingSeeder extends Seeder
             // Store Settings
             [
                 'key' => 'store_name',
-                'value' => 'YourStudio',
+                'value' => 'YOUR STUDIO',
                 'type' => 'text',
                 'group' => 'store',
                 'label' => 'Nama Toko',
@@ -25,7 +25,7 @@ class SystemSettingSeeder extends Seeder
             ],
             [
                 'key' => 'store_address',
-                'value' => 'Jl. Contoh No. 123',
+                'value' => 'Jl. Raya Sawojajar Ruko WOW Paris, Kav PA-1 12, Malang',
                 'type' => 'text',
                 'group' => 'store',
                 'label' => 'Alamat Toko',
@@ -34,18 +34,27 @@ class SystemSettingSeeder extends Seeder
             ],
             [
                 'key' => 'store_phone',
-                'value' => '08123456789',
+                'value' => '',
                 'type' => 'text',
                 'group' => 'store',
                 'label' => 'Nomor Telepon',
                 'description' => 'Nomor telepon toko',
                 'is_public' => true
             ],
-            
+            [
+                'key' => 'store_instagram',
+                'value' => '@your__studio',
+                'type' => 'text',
+                'group' => 'store',
+                'label' => 'Instagram Toko',
+                'description' => 'Akun Instagram yang ditampilkan di struk (kosongkan untuk menyembunyikan)',
+                'is_public' => false
+            ],
+
             // Receipt Settings
             [
                 'key' => 'receipt_header',
-                'value' => 'Terima kasih telah berbelanja',
+                'value' => 'Create your own studio',
                 'type' => 'text',
                 'group' => 'receipt',
                 'label' => 'Header Struk',
@@ -54,7 +63,7 @@ class SystemSettingSeeder extends Seeder
             ],
             [
                 'key' => 'receipt_footer',
-                'value' => 'Barang yang sudah dibeli tidak dapat dikembalikan',
+                'value' => 'Terima kasih telah berbelanja di YOUR STUDIO. Sampai jumpa lagi!',
                 'type' => 'text',
                 'group' => 'receipt',
                 'label' => 'Footer Struk',

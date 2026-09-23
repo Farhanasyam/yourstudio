@@ -319,8 +319,10 @@ function addToCart(product) {
     }
     
     const barcode = product.barcode;
-    
+
     if (cart[barcode]) {
+        cart[barcode].stock = product.stock_quantity;
+        if (!hasStockFor(barcode, cart[barcode].quantity + 1)) return;
         cart[barcode].quantity++;
         showAlert(`${product.name} +1 (${cart[barcode].quantity})`, 'success');
     } else {
@@ -328,6 +330,7 @@ function addToCart(product) {
             id: product.id,
             name: product.name,
             price: parseFloat(product.selling_price),
+            stock: product.stock_quantity,
             quantity: 1
         };
         showAlert(`${product.name} ditambahkan ke keranjang`, 'success');
@@ -336,9 +339,20 @@ function addToCart(product) {
     updateCart();
 }
 
+// Check requested quantity against the stock returned by the scan
+function hasStockFor(barcode, quantity) {
+    const item = cart[barcode];
+    if (item && typeof item.stock === 'number' && quantity > item.stock) {
+        showAlert(`Stok ${item.name} hanya ${item.stock}`, 'error');
+        return false;
+    }
+    return true;
+}
+
 // Increase quantity
 function increaseQuantity(barcode) {
     if (cart[barcode]) {
+        if (!hasStockFor(barcode, cart[barcode].quantity + 1)) return;
         cart[barcode].quantity++;
         updateCart();
         showAlert(`${cart[barcode].name} +1 (${cart[barcode].quantity})`, 'info');
@@ -366,6 +380,10 @@ function updateQuantity(barcode, newQuantity) {
     }
     
     if (cart[barcode]) {
+        if (!hasStockFor(barcode, quantity)) {
+            updateCart(); // Reset to previous value
+            return;
+        }
         cart[barcode].quantity = quantity;
         updateCart();
         showAlert(`${cart[barcode].name} quantity diubah ke ${quantity}`, 'info');
@@ -457,8 +475,9 @@ document.addEventListener('DOMContentLoaded', function() {
     barcodeInput.addEventListener('input', function() {
         const barcode = this.value.trim();
         
-        // Auto-scan when barcode is complete (13 digits for EAN13)
-        if (barcode.length === 13) {
+        // Auto-scan only for complete EAN13 (13 digits). Other types (CODE128/QR are 15 chars)
+        // are submitted by the scanner's Enter key, otherwise they'd be cut off at 13 chars.
+        if (/^\d{13}$/.test(barcode)) {
             scanBarcode(barcode);
             this.value = ''; // Clear input
         }
@@ -512,7 +531,18 @@ function setupPaymentHandlers() {
     } else {
         console.error('Paid input not found');
     }
-    
+
+    // Card / QRIS: hide cash inputs and treat the payment as exact
+    const methodSelect = document.getElementById('paymentMethod');
+    if (methodSelect) {
+        methodSelect.addEventListener('change', function() {
+            const isCash = this.value === 'cash';
+            document.getElementById('cashPaymentSection').style.display = isCash ? '' : 'none';
+            document.getElementById('nonCashPaymentSection').style.display = isCash ? 'none' : '';
+            if (!isCash) setExactAmount();
+        });
+    }
+
     // Initial calculation
     setTimeout(() => {
         calculateChange();
@@ -613,8 +643,11 @@ function processPayment() {
     
     const totalText = totalElement.textContent;
     const total = parseInt(totalText.replace(/[^\d]/g, ''));
-    const paid = parseInt(paidInput.value) || 0;
-    
+    const methodSelect = document.getElementById('paymentMethod');
+    const isCash = !methodSelect || methodSelect.value === 'cash';
+    // Non-cash payments are always for the exact amount (cart may have changed after selecting the method)
+    const paid = isCash ? (parseInt(paidInput.value) || 0) : total;
+
     console.log('Processing payment:', { total, paid });
     
     if (isNaN(total) || total <= 0) {
@@ -705,10 +738,9 @@ function processPaymentTransaction(total, paid, change) {
         },
         body: JSON.stringify(transactionData)
     })
-    .then(response => {
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return response.json();
-    })
+    .then(response => response.json().catch(() => {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }))
     .then(data => {
         if (data.success) {
             Swal.fire({

@@ -370,7 +370,9 @@ class ReportController extends Controller
                     'stock_value' => $item->stock_quantity * $item->purchase_price,
                     'is_low_stock' => $item->stock_quantity <= $item->minimum_stock ? 'Ya' : 'Tidak',
                 ];
-            });
+            })
+            // filter()/sortBy() keep the original keys; reindex so it is stored as a JSON list
+            ->values();
 
         $summary = [
             'total_low_stock_items' => $lowStockItems->count(),

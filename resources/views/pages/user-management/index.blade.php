@@ -113,62 +113,49 @@
                                                 <span class="text-xs">{{ $user->created_at->setTimezone('Asia/Jakarta')->format('d/m/Y') }}</span>
                                             </td>
                                             <td class="align-middle">
-                                                <div class="dropdown">
-                                                    <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                                        Aksi
-                                                    </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="{{ route('user-management.show', $user) }}">
-                                                            <i class="fas fa-eye"></i> Lihat</a></li>
-                                                        <li><a class="dropdown-item" href="{{ route('user-management.edit', $user) }}">
-                                                            <i class="fas fa-edit"></i> Edit</a></li>
-                                                        
-                                                        @if($user->approval_status == 'pending')
-                                                            <li><hr class="dropdown-divider"></li>
-                                                            <li>
-                                                                <form action="{{ route('user-management.approve', $user) }}" method="POST" class="d-inline">
-                                                                    @csrf
-                                                                    <button type="submit" class="btn btn-success btn-sm" 
-                                                                            onclick="return showConfirmDialog('Setujui user ini?', 'Confirm Approval', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
-                                                                        <i class="fas fa-check"></i> Approve
-                                                                    </button>
-                                                                </form>
-                                                            </li>
-                                                            <li>
-                                                                <form action="{{ route('user-management.reject', $user) }}" method="POST" class="d-inline">
-                                                                    @csrf
-                                                                    <button type="submit" class="btn btn-warning btn-sm" 
-                                                                            onclick="return showConfirmDialog('Tolak user ini?', 'Confirm Rejection', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
-                                                                        <i class="fas fa-times"></i> Reject
-                                                                    </button>
-                                                                </form>
-                                                            </li>
-                                                        @endif
+                                                {{-- Inline icon actions: a dropdown here widened the table with its hidden menu --}}
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <a href="{{ route('user-management.show', $user) }}" class="btn btn-link text-info p-1 mb-0" title="Lihat">
+                                                        <i class="fas fa-eye text-sm"></i>
+                                                    </a>
+                                                    <a href="{{ route('user-management.edit', $user) }}" class="btn btn-link text-secondary p-1 mb-0" title="Edit">
+                                                        <i class="fas fa-pencil-alt text-sm"></i>
+                                                    </a>
 
-                                                        @if($user->id != auth()->id())
-                                                            <li><hr class="dropdown-divider"></li>
-                                                            <li>
-                                                                <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="d-inline">
-                                                                    @csrf
-                                                                    <button type="submit" class="btn btn-info btn-sm" 
-                                                                            onclick="return showConfirmDialog('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
-                                                                        <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }}"></i> 
-                                                                        {{ $user->is_active ? 'Deactivate' : 'Activate' }}
-                                                                    </button>
-                                                                </form>
-                                                            </li>
-                                                            <li>
-                                                                <form id="delete-form-user-{{ $user->id }}" action="{{ route('user-management.destroy', $user) }}" method="POST" class="d-inline">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <button type="button" class="btn btn-danger btn-sm" 
-                                                                            onclick="deleteConfirmation('delete-form-user-{{ $user->id }}')">
-                                                                        <i class="fas fa-trash"></i> Delete
-                                                                    </button>
-                                                                </form>
-                                                            </li>
-                                                        @endif
-                                                    </ul>
+                                                    @if($user->approval_status == 'pending')
+                                                        <form action="{{ route('user-management.approve', $user) }}" method="POST" class="d-inline">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-link text-success p-1 mb-0" title="Approve"
+                                                                    onclick="return confirmButtonSubmit(this, 'Setujui user ini?', 'Confirm Approval')">
+                                                                <i class="fas fa-check text-sm"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form action="{{ route('user-management.reject', $user) }}" method="POST" class="d-inline">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-link text-warning p-1 mb-0" title="Reject"
+                                                                    onclick="return confirmButtonSubmit(this, 'Tolak user ini?', 'Confirm Rejection')">
+                                                                <i class="fas fa-times text-sm"></i>
+                                                            </button>
+                                                        </form>
+                                                    @endif
+
+                                                    @if($user->id != auth()->id() && !$user->isSuperAdmin())
+                                                        <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="d-inline">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-link text-primary p-1 mb-0" title="{{ $user->is_active ? 'Deactivate' : 'Activate' }}"
+                                                                    onclick="return confirmButtonSubmit(this, '{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change')">
+                                                                <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }} text-sm"></i>
+                                                            </button>
+                                                        </form>
+                                                        <form id="delete-form-user-{{ $user->id }}" action="{{ route('user-management.destroy', $user) }}" method="POST" class="d-inline">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="button" class="btn btn-link text-danger p-1 mb-0" title="Delete"
+                                                                    onclick="deleteConfirmation('delete-form-user-{{ $user->id }}')">
+                                                                <i class="fas fa-trash text-sm"></i>
+                                                            </button>
+                                                        </form>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

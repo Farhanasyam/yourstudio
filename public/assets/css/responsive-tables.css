@@ -1,0 +1,122 @@
+/*
+ * Make every data table fit its card without horizontal scrolling.
+ * The Argon template sets `white-space: nowrap` on all cells and 1.5rem side padding on headers,
+ * so any table with more than a few columns was wider than the screen.
+ */
+
+/* Desktop / tablet: let cell content wrap and tighten the spacing */
+.table td,
+.table th {
+    white-space: normal;
+}
+
+.table thead th,
+.table > :not(caption) > * > * {
+    padding-left: .6rem;
+    padding-right: .6rem;
+}
+
+.table td {
+    /* long unbroken values (SKUs, transaction codes, emails) may break instead of widening the column */
+    overflow-wrap: anywhere;
+}
+
+/* ...but keep small UI pieces on one line */
+.table .badge,
+.table .btn,
+.table .form-control,
+.table .form-select,
+.table input[type="number"] {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+/* Action buttons may wrap onto a second line instead of pushing the table wider */
+.table .btn-group,
+.table td > .d-flex {
+    flex-wrap: wrap;
+}
+
+.table td .btn-link {
+    padding-left: .35rem;
+    padding-right: .35rem;
+}
+
+/* The template's .btn-sm has ~2rem side padding; in table rows that alone overflows narrow screens */
+.table td .btn-sm {
+    padding: .4rem .6rem;
+    margin-bottom: .15rem;
+}
+
+/*
+ * Phones: tables with many columns can't fit 400px, so each row becomes a stacked card.
+ * responsive-tables.js copies every column header into the cell's data-label attribute.
+ */
+@media (max-width: 767.98px) {
+    table.table-stack thead {
+        display: none;
+    }
+
+    table.table-stack,
+    table.table-stack tbody,
+    table.table-stack tfoot,
+    table.table-stack tr,
+    table.table-stack td {
+        display: block;
+        width: 100% !important;
+    }
+
+    table.table-stack tr {
+        padding: .5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    table.table-stack > :not(caption) > * > * {
+        border-bottom-width: 0;
+    }
+
+    table.table-stack td {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .4rem .75rem;
+        padding: .3rem .75rem !important;
+        text-align: right !important;
+    }
+
+    table.table-stack td::before {
+        content: attr(data-label);
+        flex: 0 0 38%;
+        max-width: 38%;
+        text-align: left;
+        font-size: .65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        color: #8392ab;
+    }
+
+    /* Cells without a header (e.g. action buttons, empty-state rows) use the full width */
+    table.table-stack td[data-label=""]::before,
+    table.table-stack td:not([data-label])::before {
+        display: none;
+    }
+
+    table.table-stack td[data-label=""],
+    table.table-stack td[colspan] {
+        justify-content: center;
+        text-align: center !important;
+    }
+
+    /* Inner flex blocks (avatar + name, button groups) align to the right edge */
+    table.table-stack td > .d-flex,
+    table.table-stack td > .btn-group {
+        justify-content: flex-end;
+    }
+
+    table.table-stack td[data-label=""] > .d-flex,
+    table.table-stack td[data-label=""] > .btn-group {
+        justify-content: center;
+    }
+}

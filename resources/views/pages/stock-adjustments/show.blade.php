@@ -73,7 +73,7 @@
                                     <table class="table table-sm">
                                         <tr>
                                             <td class="text-sm font-weight-bold">Reason:</td>
-                                            <td class="text-sm">{{ $stockAdjustment->reason }}</td>
+                                            <td class="text-sm">{{ $stockAdjustment->reason_label }}</td>
                                         </tr>
                                         <tr>
                                             <td class="text-sm font-weight-bold">Notes:</td>

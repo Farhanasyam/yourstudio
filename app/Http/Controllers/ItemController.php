@@ -168,9 +168,34 @@ class ItemController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        $item->update($request->all());
+        $data = $request->all();
+        if ($request->has('is_active')) {
+            $data['is_active'] = $request->boolean('is_active');
+        }
+        $item->update($data);
 
         return redirect()->route('items.index')->with('success', 'Item updated successfully.');
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Item $item)
+    {
+        // Foreign keys cascade, so deleting an item with history would silently wipe
+        // sales / stock records. Only allow deleting items that were never used.
+        $hasHistory = DB::table('transaction_items')->where('item_id', $item->id)->exists()
+            || $item->stockInDetails()->exists()
+            || $item->stockAdjustments()->exists();
+
+        if ($hasHistory) {
+            return redirect()->route('items.index')
+                ->with('error', 'Item tidak dapat dihapus karena sudah memiliki riwayat transaksi/stok. Nonaktifkan item melalui menu Edit.');
+        }
+
+        $item->delete();
+
+        return redirect()->route('items.index')->with('success', 'Item deleted successfully.');
     }
 
     /**
@@ -215,8 +240,11 @@ class ItemController extends Controller
     public function import(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'excel_file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max
+            // .xls (Excel 97-2003) is a binary format the built-in parser can't read
+            'excel_file' => 'required|file|mimes:xlsx,csv,txt|max:10240', // 10MB max
             'default_purchase_price' => 'required|numeric|min:0',
+        ], [
+            'excel_file.mimes' => 'Format file harus .xlsx atau .csv. Untuk file .xls, buka di Excel lalu Save As .xlsx.',
         ]);
 
         if ($validator->fails()) {
@@ -230,8 +258,8 @@ class ItemController extends Controller
             $fullPath = storage_path('app/public/' . $filePath);
 
             // Parse Excel file based on extension
-            $extension = $file->getClientOriginalExtension();
-            if ($extension === 'csv') {
+            $extension = strtolower($file->getClientOriginalExtension());
+            if ($extension !== 'xlsx') {
                 $data = $this->parseCsv($fullPath);
             } else {
                 $data = $this->parseExcel($fullPath);
@@ -317,7 +345,7 @@ class ItemController extends Controller
         $data = [];
         
         // Simple Excel parsing using XMLReader for XLSX files
-        if (pathinfo($filePath, PATHINFO_EXTENSION) === 'xlsx') {
+        if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) === 'xlsx') {
             $zip = new \ZipArchive();
             if ($zip->open($filePath) === TRUE) {
                 $worksheetData = $zip->getFromName('xl/worksheets/sheet1.xml');
@@ -330,7 +358,12 @@ class ItemController extends Controller
                     $xml = simplexml_load_string($sharedStringsData);
                     if ($xml) {
                         foreach ($xml->si as $si) {
-                            $sharedStrings[] = (string)$si->t;
+                            // Rich-text cells store their text in several <r><t> runs instead of one <t>
+                            $text = (string)$si->t;
+                            foreach ($si->r as $run) {
+                                $text .= (string)$run->t;
+                            }
+                            $sharedStrings[] = $text;
                         }
                     }
                 }
@@ -341,19 +374,24 @@ class ItemController extends Controller
                     if ($xml) {
                         $rows = [];
                         foreach ($xml->sheetData->row as $row) {
-                            $rowData = [];
+                            $rowData = array_fill(0, 5, '');
                             foreach ($row->c as $cell) {
                                 $value = '';
                                 if ((string)$cell['t'] === 's') {
                                     // Shared string reference
                                     $index = (int)$cell->v;
                                     $value = isset($sharedStrings[$index]) ? $sharedStrings[$index] : '';
+                                } elseif ((string)$cell['t'] === 'inlineStr') {
+                                    $value = (string)$cell->is->t;
                                 } else {
                                     $value = (string)$cell->v;
                                 }
-                                $rowData[] = $value;
+                                // Empty cells are omitted from the XML, so place each value by its
+                                // column letter (A1, C1, ...) instead of by position
+                                $rowData[$this->columnIndex((string)$cell['r'], count($rowData))] = $value;
                             }
-                            $rows[] = $rowData;
+                            ksort($rowData);
+                            $rows[] = array_values($rowData);
                         }
                         
                         // Skip header row and filter rows with sufficient data
@@ -365,12 +403,24 @@ class ItemController extends Controller
                     }
                 }
             }
-        } else {
-            // For XLS files, try to read as CSV (fallback)
-            return $this->parseCsv($filePath);
         }
 
         return $data;
+    }
+
+    /**
+     * Convert a cell reference like "C12" to a zero-based column index (C => 2).
+     */
+    private function columnIndex(string $cellRef, int $fallback): int
+    {
+        if (!preg_match('/^([A-Z]+)/', $cellRef, $m)) {
+            return $fallback;
+        }
+        $index = 0;
+        foreach (str_split($m[1]) as $char) {
+            $index = $index * 26 + (ord($char) - 64);
+        }
+        return $index - 1;
     }
 
     /**

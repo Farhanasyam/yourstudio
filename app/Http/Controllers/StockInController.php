@@ -145,10 +145,6 @@ class StockInController extends Controller
 
     public function edit(StockIn $stockIn)
     {
-        if ($stockIn->status === 'completed') {
-            return redirect()->route('stock-in.index')->with('error', 'Cannot edit completed stock in transaction.');
-        }
-
         $suppliers = Supplier::orderBy('name')->get();
         $items = Item::where('is_active', true)->orderBy('name')->get();
         $stockIn->load('details.item');
@@ -157,10 +153,6 @@ class StockInController extends Controller
 
     public function update(Request $request, StockIn $stockIn)
     {
-        if ($stockIn->status === 'completed') {
-            return redirect()->route('stock-in.index')->with('error', 'Cannot update completed stock in transaction.');
-        }
-
         $validator = Validator::make($request->all(), [
             'supplier_id' => 'required|exists:suppliers,id',
             'transaction_date' => 'required|date',
@@ -178,7 +170,9 @@ class StockInController extends Controller
         try {
             DB::beginTransaction();
 
-            // Reverse previous stock changes
+            // Reverse previous stock changes. Stock may dip temporarily here because the
+            // new quantities are added back below; the final result is checked before commit.
+            $previousItemIds = $stockIn->details->pluck('item_id')->all();
             foreach ($stockIn->details as $detail) {
                 $item = Item::find($detail->item_id);
                 $item->stock_quantity -= $detail->quantity;
@@ -221,6 +215,15 @@ class StockInController extends Controller
                 $item->save();
             }
 
+            // Reducing a stock-in below what has already been sold would leave negative stock
+            $affectedIds = array_merge($previousItemIds, array_column($request->items, 'item_id'));
+            $negative = Item::whereIn('id', $affectedIds)->where('stock_quantity', '<', 0)->pluck('name');
+            if ($negative->isNotEmpty()) {
+                DB::rollBack();
+                return redirect()->back()->withInput()
+                    ->with('error', 'Perubahan ditolak: stok akan minus untuk ' . $negative->implode(', ') . ' (barang sudah terjual).');
+            }
+
             DB::commit();
             return redirect()->route('stock-in.index')->with('success', 'Stock In updated successfully.');
         } catch (\Exception $e) {
@@ -231,16 +234,17 @@ class StockInController extends Controller
 
     public function destroy(StockIn $stockIn)
     {
-        if ($stockIn->status === 'completed') {
-            return redirect()->route('stock-in.index')->with('error', 'Cannot delete completed stock in transaction.');
-        }
-
         try {
             DB::beginTransaction();
 
-            // Reverse stock changes
+            // Reverse stock changes; refuse if the goods were already sold
             foreach ($stockIn->details as $detail) {
-                $item = Item::find($detail->item_id);
+                $item = Item::lockForUpdate()->find($detail->item_id);
+                if ($item->stock_quantity < $detail->quantity) {
+                    DB::rollBack();
+                    return redirect()->route('stock-in.index')
+                        ->with('error', "Stock In tidak dapat dihapus: stok {$item->name} tinggal {$item->stock_quantity}, sedangkan yang akan dikurangi {$detail->quantity} (barang sudah terjual).");
+                }
                 $item->stock_quantity -= $detail->quantity;
                 $item->save();
             }

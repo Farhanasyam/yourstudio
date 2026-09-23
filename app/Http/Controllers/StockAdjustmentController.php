@@ -31,7 +31,7 @@ class StockAdjustmentController extends Controller
             'item_id' => 'required|exists:items,id',
             'type' => 'required|in:increase,decrease',
             'quantity' => 'required|integer|min:1',
-            'reason' => 'required|string|max:255',
+            'reason' => 'required|in:' . implode(',', array_keys(StockAdjustment::REASONS)),
             'notes' => 'nullable|string',
             'adjustment_date' => 'required|date',
         ]);
@@ -54,6 +54,7 @@ class StockAdjustmentController extends Controller
                 
                 // Check if decrease would result in negative stock
                 if ($stockAfter < 0) {
+                    DB::rollBack();
                     return redirect()->back()->with('error', 'Insufficient stock. Current stock: ' . $stockBefore)->withInput();
                 }
             }
@@ -101,7 +102,7 @@ class StockAdjustmentController extends Controller
             'item_id' => 'required|exists:items,id',
             'type' => 'required|in:increase,decrease',
             'quantity' => 'required|integer|min:1',
-            'reason' => 'required|string|max:255',
+            'reason' => 'required|in:' . implode(',', array_keys(StockAdjustment::REASONS)),
             'notes' => 'nullable|string',
             'adjustment_date' => 'required|date',
         ]);
@@ -121,16 +122,18 @@ class StockAdjustmentController extends Controller
                 $item->stock_quantity += $stockAdjustment->quantity;
             }
 
-            // Apply new adjustment
-            $newItem = Item::find($request->item_id);
+            // Apply new adjustment. When the item is unchanged, reuse the reversed instance;
+            // a fresh query would read the un-reversed stock and the save below would overwrite it.
+            $newItem = $item->id == $request->item_id ? $item : Item::find($request->item_id);
             $stockBefore = $newItem->stock_quantity;
 
             if ($request->type === 'increase') {
                 $stockAfter = $stockBefore + $request->quantity;
             } else {
                 $stockAfter = $stockBefore - $request->quantity;
-                
+
                 if ($stockAfter < 0) {
+                    DB::rollBack();
                     return redirect()->back()->with('error', 'Insufficient stock. Current stock: ' . $stockBefore)->withInput();
                 }
             }

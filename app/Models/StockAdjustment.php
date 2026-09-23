@@ -26,6 +26,21 @@ class StockAdjustment extends Model
         'adjustment_date' => 'date',
     ];
 
+    // Keys must match the `reason` enum column in the stock_adjustments table
+    public const REASONS = [
+        'correction' => 'Stock Take / System Correction',
+        'damaged' => 'Damaged Items',
+        'expired' => 'Expired Items',
+        'lost' => 'Lost Items',
+        'found' => 'Found Items',
+        'other' => 'Other',
+    ];
+
+    public function getReasonLabelAttribute()
+    {
+        return self::REASONS[$this->reason] ?? $this->reason;
+    }
+
     protected static function boot()
     {
         parent::boot();

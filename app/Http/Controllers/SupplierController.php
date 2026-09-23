@@ -132,6 +132,11 @@ class SupplierController extends Controller
             return redirect()->route('suppliers.index')->with('error', 'Cannot delete supplier. It has associated items.');
         }
 
+        // stock_ins.supplier_id cascades, so deleting would wipe the stock-in history
+        if (\App\Models\StockIn::where('supplier_id', $supplier->id)->exists()) {
+            return redirect()->route('suppliers.index')->with('error', 'Cannot delete supplier. It has stock in history.');
+        }
+
         $supplier->delete();
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier deleted successfully.');

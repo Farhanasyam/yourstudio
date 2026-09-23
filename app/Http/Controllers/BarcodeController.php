@@ -66,13 +66,6 @@ class BarcodeController extends Controller
         $itemsWithoutBarcodes = $totalItems - $itemsWithBarcodes;
         $completionPercentage = $totalItems > 0 ? round(($itemsWithBarcodes / $totalItems) * 100, 1) : 0;
         
-        if ($request->ajax()) {
-            return response()->json([
-                'html' => view('pages.barcodes.partials.table', compact('barcodes'))->render(),
-                'pagination' => $barcodes->links()->toHtml()
-            ]);
-        }
-        
         return view('pages.barcodes.index', compact('barcodes', 'items', 'totalItems', 'itemsWithBarcodes', 'itemsWithoutBarcodes', 'completionPercentage'));
     }
 
@@ -517,47 +510,6 @@ class BarcodeController extends Controller
         }
         
         return view('pages.barcodes.print', compact('barcode'));
-    }
-
-    /**
-     * Show bulk print form
-     */
-    public function bulkPrintForm()
-    {
-        $barcodes = Barcode::with(['item'])
-            ->where('is_active', true)
-            ->orderBy('created_at', 'desc')
-            ->get();
-            
-        return view('pages.barcodes.bulk-print', compact('barcodes'));
-    }
-
-    /**
-     * Print multiple barcodes
-     */
-    public function bulkPrint(Request $request)
-    {
-        $request->validate([
-            'barcode_ids' => 'required|array|min:1',
-            'barcode_ids.*' => 'exists:barcodes,id',
-            'copies' => 'nullable|integer|min:1|max:100'
-        ]);
-
-        $barcodes = Barcode::with(['item'])
-            ->whereIn('id', $request->barcode_ids)
-            ->get();
-
-        $copies = $request->input('copies', 1);
-
-        // Mark selected barcodes as printed
-        Barcode::whereIn('id', $request->barcode_ids)
-            ->where('is_printed', false)
-            ->update([
-                'is_printed' => true,
-                'printed_at' => now(),
-            ]);
-
-        return view('pages.barcodes.bulk-print-result', compact('barcodes', 'copies'));
     }
 
     /**

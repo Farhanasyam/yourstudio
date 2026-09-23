@@ -53,7 +53,7 @@
                                 </div>
                                 
                                 <!-- Quick Actions -->
-                                @if($user->id != auth()->id())
+                                @if($user->id != auth()->id() && !$user->isSuperAdmin())
                                 <div class="card mt-3">
                                     <div class="card-header pb-0">
                                         <h6>Aksi Cepat</h6>
@@ -63,7 +63,7 @@
                                             <form action="{{ route('user-management.approve', $user) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 <button type="submit" class="btn btn-success btn-sm" 
-                                                        onclick="return showConfirmDialog('Setujui user ini?', 'Confirm Approval', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                        onclick="return confirmButtonSubmit(this, 'Setujui user ini?', 'Confirm Approval')">
                                                     <i class="fas fa-check"></i> Approve
                                                 </button>
                                             </form>
@@ -71,7 +71,7 @@
                                             <form action="{{ route('user-management.reject', $user) }}" method="POST" class="d-inline">
                                                 @csrf
                                                 <button type="submit" class="btn btn-warning btn-sm" 
-                                                        onclick="return showConfirmDialog('Tolak user ini?', 'Confirm Rejection', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                        onclick="return confirmButtonSubmit(this, 'Tolak user ini?', 'Confirm Rejection')">
                                                     <i class="fas fa-times"></i> Reject
                                                 </button>
                                             </form>
@@ -80,7 +80,7 @@
                                         <form action="{{ route('user-management.toggle-status', $user) }}" method="POST" class="d-inline">
                                             @csrf
                                             <button type="submit" class="btn btn-info btn-sm" 
-                                                    onclick="return showConfirmDialog('{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change', 'Yes', 'No').then((result) => { if (!result.isConfirmed) event.preventDefault(); })">
+                                                    onclick="return confirmButtonSubmit(this, '{{ $user->is_active ? 'Nonaktifkan' : 'Aktifkan' }} user ini?', 'Confirm Status Change')">
                                                 <i class="fas fa-{{ $user->is_active ? 'pause' : 'play' }}"></i> {{ $user->is_active ? 'Deactivate' : 'Activate' }}
                                             </button>
                                         </form>

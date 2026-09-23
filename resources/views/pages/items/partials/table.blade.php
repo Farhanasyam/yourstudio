@@ -57,13 +57,20 @@
                         @endif
                     </td>
                     <td class="align-middle">
-                        <div class="btn-group" role="group">
-                            <a href="{{ route('items.show', $item) }}" class="btn btn-link text-info font-weight-bold text-xs" data-toggle="tooltip" data-original-title="View item">
-                                <i class="fas fa-eye text-xs me-1"></i>View
+                        <div class="d-flex align-items-center gap-1">
+                            <a href="{{ route('items.show', $item) }}" class="btn btn-link text-info p-1 mb-0" title="View">
+                                <i class="fas fa-eye text-sm"></i>
                             </a>
-                            <a href="{{ route('items.edit', $item) }}" class="btn btn-link text-secondary font-weight-bold text-xs" data-toggle="tooltip" data-original-title="Edit item">
-                                <i class="fas fa-pencil-alt text-xs me-1"></i>Edit
+                            <a href="{{ route('items.edit', $item) }}" class="btn btn-link text-secondary p-1 mb-0" title="Edit">
+                                <i class="fas fa-pencil-alt text-sm"></i>
                             </a>
+                            <form id="delete-item-{{ $item->id }}" action="{{ route('items.destroy', $item) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="button" class="btn btn-link text-danger p-1 mb-0" title="Delete" onclick="deleteConfirmation('delete-item-{{ $item->id }}')">
+                                    <i class="fas fa-trash text-sm"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>

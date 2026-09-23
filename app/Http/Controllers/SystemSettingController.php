@@ -21,7 +21,7 @@ class SystemSettingController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'settings' => 'required|array',
-            'settings.*' => 'required'
+            'settings.*' => 'nullable'
         ]);
 
         if ($validator->fails()) {
@@ -36,7 +36,7 @@ class SystemSettingController extends Controller
             if ($setting) {
                 // Handle boolean values from checkboxes
                 if ($setting->type === 'boolean') {
-                    $value = $value === 'on' || $value === '1' || $value === true;
+                    $value = ($value === 'on' || $value === '1' || $value === true) ? '1' : '0';
                 }
                 
                 // Handle number values
@@ -44,7 +44,7 @@ class SystemSettingController extends Controller
                     $value = is_numeric($value) ? $value : 0;
                 }
                 
-                $setting->value = $value;
+                $setting->value = $value ?? '';
                 $setting->save();
                 
                 // Clear cache for this setting

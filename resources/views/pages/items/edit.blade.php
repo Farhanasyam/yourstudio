@@ -200,6 +200,16 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-check form-switch ps-0 ms-4 mb-3">
+                                        <input type="hidden" name="is_active" value="0">
+                                        <input class="form-check-input ms-auto" type="checkbox" id="is_active" name="is_active" value="1"
+                                               {{ old('is_active', $item->is_active) ? 'checked' : '' }}>
+                                        <label class="form-check-label ms-2" for="is_active">Active (tampil & bisa dijual di kasir)</label>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="d-flex justify-content-end">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Update Item

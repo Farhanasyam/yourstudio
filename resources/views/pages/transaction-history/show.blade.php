@@ -18,11 +18,6 @@
                                     <a href="/transaction-history" class="btn btn-outline-secondary btn-sm mb-0">
                                         <i class="fas fa-arrow-left me-1"></i> Kembali
                                     </a>
-                                    @if(auth()->user()->isKasir() && $transaction->cashier_id == auth()->id() || auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
-                                    <a href="{{ route('transaction-history.edit', $transaction->id) }}" class="btn bg-gradient-info btn-sm mb-0">
-                                        <i class="fas fa-edit me-1"></i> Edit
-                                    </a>
-                                    @endif
                                     <a href="/kasir/receipt/{{ $transaction->id }}" target="_blank" class="btn bg-gradient-primary btn-sm mb-0">
                                         <i class="fas fa-print me-1"></i> Cetak Struk
                                     </a>

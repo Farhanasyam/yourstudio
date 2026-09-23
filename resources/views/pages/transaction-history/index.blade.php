@@ -117,11 +117,6 @@
                             </div>
                             <div class="ms-auto my-auto mt-lg-0 mt-4">
                                 <div class="ms-auto my-auto">
-                                    @if(auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
-                                    <button type="button" class="btn bg-gradient-warning btn-sm mb-0 me-2" onclick="fixCashierData()">
-                                        <i class="fas fa-wrench me-1"></i> Fix Cashier Data
-                                    </button>
-                                    @endif
                                     <a href="/transaction-history-export?{{ http_build_query(request()->query()) }}" class="btn bg-gradient-primary btn-sm mb-0">
                                         <i class="fas fa-download me-1"></i> Export CSV
                                     </a>
@@ -269,11 +264,6 @@
                                             <a href="/transaction-history/{{ $transaction->id }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Lihat Detail">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            @if(auth()->user()->isKasir() && $transaction->cashier_id == auth()->id() || auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
-                                            <a href="{{ route('transaction-history.edit', $transaction->id) }}" class="btn btn-sm btn-outline-warning" data-bs-toggle="tooltip" title="Edit Transaksi">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            @endif
 
                                             <a href="/kasir/receipt/{{ $transaction->id }}?copy=1" target="_blank" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Cetak Ulang Struk (Copy)">
                                                 <i class="fas fa-print"></i>
@@ -481,46 +471,6 @@
             deleteAllTransactionsBtn.innerHTML = '<i class="fas fa-trash-alt me-1"></i> Delete All Transactions';
             deleteAllTransactionsBtn.disabled = false;
         }
-    }
-
-    // Fix cashier data function
-    function fixCashierData() {
-        var button = event.target;
-        var originalText = button.innerHTML;
-        Swal.fire({
-            title: 'Perbaiki Data Kasir?',
-            text: 'Tindakan ini akan mengupdate transaksi yang memiliki data kasir yang tidak valid.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Ya, Perbaiki',
-            cancelButtonText: 'Batal'
-        }).then(function(result) {
-            if (!result.isConfirmed) return;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memperbaiki...';
-            button.disabled = true;
-            fetch('/transaction-history/fix-cashier-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
-            })
-            .then(function(response) { return response.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    Swal.fire({ title: 'Berhasil', text: 'Berhasil memperbaiki ' + data.fixed_count + ' transaksi!', icon: 'success', confirmButtonColor: '#3085d6' }).then(function() { window.location.reload(); });
-                } else {
-                    Swal.fire({ title: 'Error', text: data.error || 'Terjadi kesalahan', icon: 'error', confirmButtonColor: '#3085d6' });
-                }
-            })
-            .catch(function(error) {
-                console.error('Error:', error);
-                Swal.fire({ title: 'Error', text: 'Terjadi kesalahan saat memperbaiki data kasir', icon: 'error', confirmButtonColor: '#3085d6' });
-            })
-            .finally(function() {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
-        });
     }
 </script>
 @endpush

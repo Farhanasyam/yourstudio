@@ -33,6 +33,25 @@ class User extends Authenticatable
         'approved_at' => 'datetime',
     ];
 
+    protected static function booted()
+    {
+        // A super admin must never be locked out, whatever code path touches the record:
+        // keep them active, approved and a super admin, and refuse to delete them.
+        static::saving(function (User $user) {
+            if ($user->exists && $user->getOriginal('role') === 'superadmin') {
+                $user->role = 'superadmin';
+                $user->is_active = true;
+                $user->approval_status = 'approved';
+            }
+        });
+
+        static::deleting(function (User $user) {
+            if ($user->getOriginal('role') === 'superadmin') {
+                throw new \RuntimeException('Super Admin tidak dapat dihapus.');
+            }
+        });
+    }
+
     // Role check methods
     public function isSuperAdmin()
     {

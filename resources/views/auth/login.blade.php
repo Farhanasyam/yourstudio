@@ -27,10 +27,12 @@
                                             @error('email') <p class="text-danger text-xs pt-1">{{ $message }}</p>@enderror
                                         </div>
                                         <div class="mb-3 position-relative">
-                                            <input type="password" name="password" class="form-control form-control-lg" placeholder="Password" aria-label="Password" id="password">
-                                            <span class="position-absolute top-50 end-0 translate-middle-y pe-3" style="cursor: pointer;" onclick="togglePasswordVisibility()">
-                                                <i class="fas fa-eye" id="togglePassword"></i>
-                                            </span>
+                                            <div class="position-relative">
+                                                <input type="password" name="password" class="form-control form-control-lg pe-5" placeholder="Password" aria-label="Password" id="password">
+                                                <span class="position-absolute top-50 end-0 translate-middle-y pe-3" style="cursor: pointer; z-index: 5;" onclick="togglePasswordVisibility()" title="Tampilkan password">
+                                                    <i class="fas fa-eye" id="togglePassword"></i>
+                                                </span>
+                                            </div>
                                             @error('password') <p class="text-danger text-xs pt-1">{{ $message }}</p>@enderror
                                         </div>
                                         <div class="form-check form-switch">
@@ -44,8 +46,7 @@
                                 </div>
                                 <div class="card-footer text-center pt-0 px-lg-2 px-1">
                                     <p class="mb-1 text-sm mx-auto">
-                                        Forgot you password? Reset your password
-                                        <a href="{{ route('reset-password') }}" class="text-primary text-gradient font-weight-bold">here</a>
+                                        Lupa password? Hubungi Super Admin untuk mengatur ulang password Anda.
                                     </p>
                                 </div>
                                 <div class="card-footer text-center pt-0 px-lg-2 px-1">
@@ -74,3 +75,18 @@
         </section>
     </main>
 @endsection
+
+@push('scripts')
+    <script>
+        function togglePasswordVisibility() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('togglePassword');
+            const show = input.type === 'password';
+
+            input.type = show ? 'text' : 'password';
+            icon.classList.toggle('fa-eye', !show);
+            icon.classList.toggle('fa-eye-slash', show);
+            icon.parentElement.title = show ? 'Sembunyikan password' : 'Tampilkan password';
+        }
+    </script>
+@endpush

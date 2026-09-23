@@ -24,12 +24,14 @@ class LowStockNotification extends Notification
     public function toDatabase($notifiable)
     {
         return [
-            'title' => 'Stok Menipis',
-            'message' => "Stok {$this->item->name} tersisa {$this->item->stock_quantity} {$this->item->unit}",
+            'title' => $this->item->stock_quantity <= 0 ? 'Stok Habis' : 'Stok Menipis',
+            'message' => $this->item->stock_quantity <= 0
+                ? "Stok {$this->item->name} habis"
+                : "Stok {$this->item->name} tersisa {$this->item->stock_quantity} {$this->item->unit}",
             'type' => 'low_stock',
             'action_url' => route('items.show', $this->item->id),
             'icon' => 'fa fa-exclamation-triangle',
-            'color' => 'warning',
+            'color' => $this->item->stock_quantity <= 0 ? 'danger' : 'warning',
             'item_id' => $this->item->id,
             'created_at' => now()->toISOString(),
         ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 // use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use App\Notifications\NewUserRegistrationNotification;
 
 class RegisterController extends Controller
 {
@@ -30,6 +31,11 @@ class RegisterController extends Controller
         $attributes['is_active'] = true;
         
         $user = User::create($attributes);
+
+        // Let super admins know there is an account waiting for approval
+        foreach (User::where('role', 'superadmin')->get() as $superAdmin) {
+            $superAdmin->notify(new NewUserRegistrationNotification($user));
+        }
         
         // Don't auto login, redirect to pending approval page
         return redirect('/login')->with('success', 

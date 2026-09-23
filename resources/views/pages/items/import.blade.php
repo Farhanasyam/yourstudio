@@ -38,7 +38,7 @@
                                         <strong>Format Harga:</strong> Sistem mendukung format Indonesia (15.000, 1.500.000) dan format internasional (15000, 1500000). Gunakan titik (.) sebagai pemisah ribuan.
                                     </p>
                                     <p class="mb-0">
-                                        <strong>Supported formats:</strong> .xlsx, .xls, .csv (Maximum file size: 10MB)<br>
+                                        <strong>Supported formats:</strong> .xlsx, .csv (Maximum file size: 10MB). File .xls: Save As .xlsx dulu di Excel<br>
                                         <strong>Note:</strong> First row should contain headers and will be skipped during import.<br>
                                         <a href="{{ asset('sample_import.csv') }}" download class="btn btn-outline-info btn-sm mt-2">
                                             <i class="fas fa-download"></i> Download Sample CSV
@@ -108,7 +108,7 @@
                                                class="form-control @error('excel_file') is-invalid @enderror" 
                                                id="excel_file" 
                                                name="excel_file" 
-                                               accept=".xlsx,.xls,.csv"
+                                               accept=".xlsx,.csv"
                                                required>
                                         @error('excel_file')
                                             <div class="invalid-feedback">
@@ -116,7 +116,7 @@
                                             </div>
                                         @enderror
                                         <div class="form-text">
-                                            Accepted formats: .xlsx, .xls, .csv (Max: 10MB)
+                                            Accepted formats: .xlsx, .csv (Max: 10MB)
                                         </div>
                                     </div>
 
@@ -161,7 +161,7 @@
     </div>
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
 document.getElementById('excel_file').addEventListener('change', function(e) {
     const fileInput = document.getElementById('excel_file');
@@ -174,9 +174,10 @@ document.getElementById('excel_file').addEventListener('change', function(e) {
             return;
         }
         
-        const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
-        if (!allowedTypes.includes(fileInput.files[0].type)) {
-            showWarningAlert('Invalid file format. Please select an Excel file (.xlsx, .xls) or CSV file (.csv).');
+        // Check the extension: on Windows a .csv often reports the .xls MIME type
+        const ext = fileInput.files[0].name.split('.').pop().toLowerCase();
+        if (!['xlsx', 'csv'].includes(ext)) {
+            showWarningAlert('Invalid file format. Please select an Excel file (.xlsx) or CSV file (.csv). For .xls files, use Save As .xlsx in Excel.');
             fileInput.value = '';
             return;
         }
@@ -187,11 +188,11 @@ document.getElementById('excel_file').addEventListener('change', function(e) {
     }
 });
 
-// Loading state on form submit
-document.querySelector('form').addEventListener('submit', function() {
+// Loading state on form submit (the import form, not the first form on the page)
+document.getElementById('excel_file').form.addEventListener('submit', function() {
     const importBtn = document.getElementById('importBtn');
     importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
     importBtn.disabled = true;
 });
 </script>
-@endsection
+@endpush

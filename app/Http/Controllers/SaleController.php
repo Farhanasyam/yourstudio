@@ -19,12 +19,9 @@ class SaleController extends Controller
         $endDate = $request->get('end_date', Carbon::now()->endOfMonth());
         
         // Convert to Carbon if string
-        if (is_string($startDate)) {
-            $startDate = Carbon::parse($startDate);
-        }
-        if (is_string($endDate)) {
-            $endDate = Carbon::parse($endDate);
-        }
+        // Include the whole start and end day (a bare date parses to 00:00)
+        $startDate = Carbon::parse($startDate)->startOfDay();
+        $endDate = Carbon::parse($endDate)->endOfDay();
 
         // Get transactions data with filters
         $query = Transaction::with(['cashier', 'transactionItems.item.category'])
@@ -35,9 +32,7 @@ class SaleController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
-                $q->where('transaction_number', 'like', "%{$search}%")
-                  ->orWhere('customer_name', 'like', "%{$search}%")
-                  ->orWhere('customer_phone', 'like', "%{$search}%")
+                $q->where('transaction_code', 'like', "%{$search}%")
                   ->orWhereHas('cashier', function($cashierQuery) use ($search) {
                       $cashierQuery->where('name', 'like', "%{$search}%");
                   })
