@@ -16,13 +16,29 @@
                                 </div>
                             </div>
                             <div class="col">
-                                <input type="text" 
-                                       id="barcodeInput" 
-                                       class="form-control form-control-lg" 
+                                <input type="text"
+                                       id="barcodeInput"
+                                       class="form-control form-control-lg"
                                        placeholder="Scan barcode produk..."
                                        autocomplete="off"
                                        autofocus>
                             </div>
+                        </div>
+                        {{-- Connection / offline queue status (filled by the script below) --}}
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-2 text-xs" id="kasirStatusBar">
+                            <span class="badge bg-gradient-success" id="connectionBadge">
+                                <i class="fas fa-wifi me-1"></i><span id="connectionText">Online</span>
+                            </span>
+                            <span class="badge bg-gradient-warning d-none" id="pendingBadge">
+                                <i class="fas fa-clock me-1"></i><span id="pendingText">0 transaksi menunggu sinkron</span>
+                            </span>
+                            <span class="badge bg-gradient-danger d-none" id="failedBadge" role="button" onclick="showFailedSales()">
+                                <i class="fas fa-exclamation-triangle me-1"></i><span id="failedText">0 gagal sinkron</span>
+                            </span>
+                            <span class="text-secondary" id="catalogText">Memuat data barang...</span>
+                            <button type="button" class="btn btn-link btn-sm text-primary p-0 mb-0 ms-auto" id="syncButton" onclick="manualSync()">
+                                <i class="fas fa-sync-alt me-1"></i>Sinkron
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -208,18 +224,33 @@
 
 @push('scripts')
 <script>
-// Cart management
+// Cart management: keyed by item id, so one item scanned via different barcodes stays one line
 let cart = {};
-// Client cache barcode -> product (2 detik) agar scan online lebih cepat
-let barcodeCache = {};
-const BARCODE_CACHE_TTL_MS = 2000;
-function getCachedBarcode(barcode) {
-    const entry = barcodeCache[barcode];
-    if (entry && (Date.now() - entry.at) < BARCODE_CACHE_TTL_MS) return entry.data;
-    return null;
+
+// Local item catalog (from /kasir/catalog, kept in the browser by kasir-offline.js):
+// scanning looks items up here, so it is instant and works without a connection.
+let catalogByCode = {};
+let catalogSettings = {};
+let cashierName = @json(auth()->user()->name);
+
+function indexCatalog(catalog) {
+    catalogByCode = {};
+    if (!catalog || !catalog.items) return;
+    catalog.items.forEach(function (item) {
+        (item.codes || []).forEach(function (code) { catalogByCode[String(code)] = item; });
+    });
+    catalogSettings = catalog.settings || {};
+    if (catalog.cashier && catalog.cashier.name) cashierName = catalog.cashier.name;
 }
-function setCachedBarcode(barcode, data) {
-    barcodeCache[barcode] = { data: data, at: Date.now() };
+
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
+function formatRp(value) {
+    return 'Rp ' + Math.round(value).toLocaleString('id-ID');
 }
 
 // Update cart display
@@ -250,8 +281,8 @@ function updateCart() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="ps-3">
-                <p class="text-sm font-weight-bold mb-0">${item.name}</p>
-                <span class="text-xs text-secondary">${barcode}</span>
+                <p class="text-sm font-weight-bold mb-0">${escapeHtml(item.name)}</p>
+                <span class="text-xs text-secondary">${escapeHtml(item.code || '')}</span>
             </td>
             <td class="text-sm text-end pe-2">Rp ${item.price.toLocaleString()}</td>
             <td class="text-center">
@@ -318,7 +349,7 @@ function addToCart(product) {
         return;
     }
     
-    const barcode = product.barcode;
+    const barcode = 'i' + product.id; // cart key
 
     if (cart[barcode]) {
         cart[barcode].stock = product.stock_quantity;
@@ -329,10 +360,12 @@ function addToCart(product) {
         cart[barcode] = {
             id: product.id,
             name: product.name,
+            code: product.barcode,
             price: parseFloat(product.selling_price),
             stock: product.stock_quantity,
             quantity: 1
         };
+        if (!hasStockFor(barcode, 1)) { delete cart[barcode]; return; }
         showAlert(`${product.name} ditambahkan ke keranjang`, 'success');
     }
     
@@ -420,27 +453,36 @@ function showAlert(message, type = 'success') {
     });
 }
 
-// Scan barcode function (pakai cache client 2 detik agar online lebih cepat)
+// Scan: look the barcode up in the local catalog (instant, works offline).
+// Only a code that is not in the catalog yet (e.g. a barcode added a moment ago) asks the server.
 function scanBarcode(barcode) {
-    if (!barcode || barcode.length === 0) {
+    barcode = String(barcode || '').trim();
+    if (!barcode) {
         showAlert('Barcode tidak boleh kosong', 'error');
         return;
     }
-    const cached = getCachedBarcode(barcode);
-    if (cached) {
-        addToCart(cached);
+    const item = catalogByCode[barcode];
+    if (item) {
+        if (item.price <= 0) {
+            showAlert(`Harga jual ${item.name} belum diatur. Atur harga di menu Items.`, 'error');
+            return;
+        }
+        if (item.stock <= 0) {
+            showAlert(`Stok ${item.name} habis`, 'error');
+            return;
+        }
+        addToCart({ id: item.id, name: item.name, barcode: barcode, selling_price: item.price, stock_quantity: item.stock });
         return;
     }
-    const token = document.querySelector('meta[name="csrf-token"]');
-    if (!token) {
-        showAlert('CSRF token tidak ditemukan', 'error');
+    if (!navigator.onLine) {
+        showAlert('Produk tidak ditemukan di data barang offline', 'error');
         return;
     }
     fetch('/kasir/search-barcode', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': token.content,
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json'
         },
         body: JSON.stringify({ barcode: barcode })
@@ -451,8 +493,8 @@ function scanBarcode(barcode) {
     })
     .then(data => {
         if (data.success && data.data) {
-            setCachedBarcode(barcode, data.data);
             addToCart(data.data);
+            loadCatalog(); // the local catalog was missing this code
         } else {
             showAlert(data.message || 'Produk tidak ditemukan', 'error');
         }
@@ -495,19 +537,89 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Keep focus on barcode input
+    // Keep focus on the barcode input, except when the cashier clicks another field
+    // (payment amount, method, qty) or a dialog
     document.addEventListener('click', function(e) {
-        if (e.target !== barcodeInput && !e.target.closest('.modal')) {
-            barcodeInput.focus();
-        }
+        if (e.target.closest('input, select, textarea, .modal, .swal2-container')) return;
+        barcodeInput.focus();
     });
-    
+
     // Initialize cart display
     updateCart();
-    
+
     // Setup payment handlers
     setupPaymentHandlers();
+
+    // Local catalog: use the saved copy immediately, then refresh from the server
+    if (window.KasirOffline) {
+        indexCatalog(KasirOffline.getCatalog());
+        loadCatalog();
+        setInterval(loadCatalog, 5 * 60 * 1000);
+        document.addEventListener('kasir-offline:changed', renderStatus);
+        document.addEventListener('kasir-offline:catalog', function (e) { indexCatalog(e.detail); renderStatus(); });
+        renderStatus();
+    }
+
+    // Keep this page available offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function (e) {
+            console.warn('Service worker tidak aktif (butuh HTTPS):', e.message);
+        });
+    }
 });
+
+function loadCatalog() {
+    if (!window.KasirOffline || !navigator.onLine) { renderStatus(); return Promise.resolve(); }
+    return KasirOffline.refreshCatalog().catch(function () { renderStatus(); });
+}
+
+// Connection, pending queue and catalog age shown above the cart
+function renderStatus() {
+    if (!window.KasirOffline) return;
+    const s = KasirOffline.status();
+    const badge = document.getElementById('connectionBadge');
+    badge.className = 'badge ' + (s.online ? 'bg-gradient-success' : 'bg-gradient-secondary');
+    document.getElementById('connectionText').textContent = s.online ? 'Online' : 'Offline - transaksi disimpan di perangkat ini';
+
+    const pending = document.getElementById('pendingBadge');
+    pending.classList.toggle('d-none', s.pending === 0);
+    document.getElementById('pendingText').textContent = (s.syncing ? 'Mengirim ' : '') + s.pending + ' transaksi menunggu sinkron';
+
+    const failed = document.getElementById('failedBadge');
+    failed.classList.toggle('d-none', s.failed.length === 0);
+    document.getElementById('failedText').textContent = s.failed.length + ' gagal sinkron (klik)';
+
+    const itemCount = Object.keys(catalogByCode).length ? (KasirOffline.getCatalog() || { items: [] }).items.length : 0;
+    document.getElementById('catalogText').textContent = s.catalogAt
+        ? `Data barang: ${itemCount} item, diperbarui ${new Date(s.catalogAt).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}`
+        : 'Data barang belum tersedia offline - buka halaman ini saat online';
+}
+
+function manualSync() {
+    if (!navigator.onLine) {
+        showAlert('Masih offline. Transaksi akan dikirim otomatis saat online.', 'warning');
+        return;
+    }
+    Promise.all([KasirOffline.syncQueue(), loadCatalog()]).then(function () {
+        const s = KasirOffline.status();
+        showAlert(s.pending === 0 && s.failed.length === 0 ? 'Semua transaksi sudah tersinkron' : `${s.pending} transaksi masih menunggu`, s.pending === 0 ? 'success' : 'warning');
+    });
+}
+
+// Sales the server refused when syncing (e.g. an item was deleted meanwhile): show and allow retry
+function showFailedSales() {
+    const failed = KasirOffline.status().failed;
+    if (!failed.length) return;
+    const list = failed.map(s => `<li><b>${escapeHtml(s.transaction_code)}</b> (${formatRp(s.total_amount)}): ${escapeHtml(s.error || '')}</li>`).join('');
+    Swal.fire({
+        title: 'Transaksi gagal sinkron',
+        html: `<ul class="text-start text-sm">${list}</ul><p class="text-sm">Laporkan ke admin. Transaksi tetap tersimpan di perangkat ini.</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Coba kirim ulang',
+        cancelButtonText: 'Tutup'
+    }).then(function (r) { if (r.isConfirmed) KasirOffline.retryFailed(); });
+}
 
 // Setup payment handlers
 function setupPaymentHandlers() {
@@ -691,7 +803,27 @@ function processPayment() {
 // Prevent double submit
 let paymentInProgress = false;
 
-// Process payment transaction
+function resetPaymentButton() {
+    paymentInProgress = false;
+    const btn = document.getElementById('processPaymentBtn');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Proses Pembayaran'; }
+}
+
+function clearAfterSale() {
+    cart = {};
+    updateCart();
+    const paidInput = document.getElementById('paidAmount');
+    const changeElement = document.getElementById('changeAmount');
+    if (paidInput) paidInput.value = '0';
+    if (changeElement) changeElement.value = 'Rp 0';
+    resetPaymentButton();
+}
+
+// Process payment transaction.
+// Every sale gets a client_uuid. If the server can't be reached (offline, timeout, server down,
+// expired session) the sale goes into the offline queue with that same id, gets an offline
+// receipt, and is sent automatically later. The server ignores a second copy of the same id,
+// so a sale that did reach the server before the connection dropped is never counted twice.
 function processPaymentTransaction(total, paid, change) {
     if (paymentInProgress) return;
     paymentInProgress = true;
@@ -701,68 +833,140 @@ function processPaymentTransaction(total, paid, change) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Memproses...';
     }
 
-    // Get cart items for transaction
     const items = [];
-    for (let barcode in cart) {
-        const item = cart[barcode];
-        items.push({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            subtotal: item.price * item.quantity
-        });
+    for (let key in cart) {
+        const item = cart[key];
+        items.push({ id: item.id, name: item.name, price: item.price, quantity: item.quantity });
     }
-    
+
     const paymentMethodSelect = document.getElementById('paymentMethod');
-    const paymentMethod = (paymentMethodSelect && paymentMethodSelect.value) ? paymentMethodSelect.value : 'cash';
-    
-    // Prepare transaction data
-    const transactionData = {
+    const now = new Date();
+    const sale = {
+        client_uuid: KasirOffline.uuid(),
+        transaction_code: KasirOffline.offlineCode(now), // only used if it ends up as an offline sale
+        created_at: now.toISOString(),
         items: items,
         total_amount: total,
         paid_amount: paid,
         change_amount: change,
-        payment_method: paymentMethod,
-        _token: document.querySelector('meta[name="csrf-token"]').content
+        payment_method: (paymentMethodSelect && paymentMethodSelect.value) ? paymentMethodSelect.value : 'cash',
+        cashier_name: cashierName,
     };
-    
-    console.log('Sending transaction data:', transactionData);
-    
-    fetch('/kasir/transaction', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(transactionData)
-    })
-    .then(response => response.json().catch(() => {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }))
-    .then(data => {
-        if (data.success) {
-            Swal.fire({
-                title: 'Pembayaran Berhasil!',
-                text: 'Transaksi telah diproses. Mencetak struk...',
-                icon: 'success',
-                showConfirmButton: false,
-                timer: 2000
-            }).then(() => {
-                window.location.href = `/kasir/receipt/${data.transaction_id}`;
+
+    if (!navigator.onLine) {
+        saveOfflineSale(sale, 'Perangkat sedang offline');
+        return;
+    }
+
+    KasirOffline.postSale(sale)
+        .then(function (res) {
+            if (res.status === 419 || res.status === 401 || res.redirected) {
+                return saveOfflineSale(sale, 'Sesi login berakhir, login ulang agar transaksi terkirim');
+            }
+            if (res.status >= 500) {
+                return saveOfflineSale(sale, 'Server sedang bermasalah');
+            }
+            return res.json().then(function (data) {
+                if (res.ok && data.success) {
+                    KasirOffline.adjustCatalogStock(items);
+                    Swal.fire({
+                        title: 'Pembayaran Berhasil!',
+                        text: 'Transaksi telah diproses. Mencetak struk...',
+                        icon: 'success',
+                        showConfirmButton: false,
+                        timer: 2000
+                    }).then(() => {
+                        window.location.href = `/kasir/receipt/${data.transaction_id}`;
+                    });
+                } else {
+                    // The server checked the sale and refused it (stock, price...): nothing to retry
+                    resetPaymentButton();
+                    showAlert(data.message || 'Gagal memproses transaksi', 'error');
+                }
             });
-        } else {
-            paymentInProgress = false;
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Proses Pembayaran'; }
-            showAlert(data.message || 'Gagal memproses transaksi', 'error');
-        }
-    })
-    .catch(error => {
-        paymentInProgress = false;
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Proses Pembayaran'; }
-        showAlert('Gagal memproses transaksi: ' + error.message, 'error');
+        })
+        .catch(function () {
+            // No answer (connection dropped or timed out): the sale may or may not have been saved,
+            // the queue's client_uuid makes the retry safe either way
+            saveOfflineSale(sale, 'Koneksi terputus');
+        });
+}
+
+function saveOfflineSale(sale, reason) {
+    const queued = Object.assign({}, sale, { offline: true, queued_at: new Date().toISOString() });
+    if (!KasirOffline.enqueue(queued)) {
+        resetPaymentButton();
+        Swal.fire('Gagal menyimpan offline', 'Penyimpanan browser penuh atau diblokir. Jangan serahkan barang; coba lagi saat online.', 'error');
+        return;
+    }
+    KasirOffline.adjustCatalogStock(sale.items);
+    indexCatalog(KasirOffline.getCatalog());
+    clearAfterSale();
+
+    const autoPrint = ['1', 'true', 'on'].includes(String(catalogSettings.auto_print_receipt ?? '1'));
+    if (autoPrint) printOfflineReceipt(queued);
+    Swal.fire({
+        title: 'Transaksi disimpan offline',
+        html: `${escapeHtml(reason)}.<br>Struk <b>${escapeHtml(sale.transaction_code)}</b> tersimpan di perangkat ini dan akan dikirim otomatis saat online.`,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: autoPrint ? 'Cetak ulang struk' : 'Cetak struk',
+        cancelButtonText: 'Transaksi baru'
+    }).then(function (r) {
+        if (r.isConfirmed) printOfflineReceipt(queued);
     });
+    renderStatus();
+}
+
+// Receipt printed from the browser for offline sales (same store details as the server receipt)
+function printOfflineReceipt(sale) {
+    const s = catalogSettings;
+    const lines = sale.items.map(i => `
+        <tr><td colspan="2">${escapeHtml(i.name)}</td></tr>
+        <tr><td>${i.quantity} x ${formatRp(i.price)}</td><td class="r">${formatRp(i.price * i.quantity)}</td></tr>`).join('');
+    const when = new Date(sale.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(sale.transaction_code)}</title>
+<style>
+  @page { size: 58mm auto; margin: 2mm; }
+  body { font-family: 'Courier New', monospace; font-size: 11px; width: 54mm; margin: 0 auto; color: #000; }
+  .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
+  hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+</style></head><body>
+  <div class="c b" style="font-size:13px">${escapeHtml(s.store_name || 'YOUR STUDIO')}</div>
+  ${s.store_address ? `<div class="c">${escapeHtml(s.store_address)}</div>` : ''}
+  ${s.store_phone ? `<div class="c">Telp. ${escapeHtml(s.store_phone)}</div>` : ''}
+  ${s.store_instagram ? `<div class="c">IG ${escapeHtml(s.store_instagram)}</div>` : ''}
+  <hr>
+  <div>No   : ${escapeHtml(sale.transaction_code)}</div>
+  <div>Tgl  : ${escapeHtml(when)}</div>
+  <div>Kasir: ${escapeHtml(sale.cashier_name || '')}</div>
+  <hr>
+  <table>${lines}</table>
+  <hr>
+  <table>
+    <tr class="b"><td>TOTAL</td><td class="r">${formatRp(sale.total_amount)}</td></tr>
+    <tr><td>Bayar (${escapeHtml(String(sale.payment_method).toUpperCase())})</td><td class="r">${formatRp(sale.paid_amount)}</td></tr>
+    <tr><td>Kembali</td><td class="r">${formatRp(sale.change_amount)}</td></tr>
+  </table>
+  <hr>
+  ${s.receipt_header ? `<div class="c">"${escapeHtml(s.receipt_header)}"</div>` : ''}
+  ${s.receipt_footer ? `<div class="c">${escapeHtml(s.receipt_footer)}</div>` : ''}
+  <div class="c" style="margin-top:4px">(transaksi offline)</div>
+</body></html>`;
+
+    let frame = document.getElementById('offlineReceiptFrame');
+    if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'offlineReceiptFrame';
+        frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;';
+        document.body.appendChild(frame);
+    }
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(function () { frame.contentWindow.focus(); frame.contentWindow.print(); }, 300);
 }
 
 // Cancel transaction

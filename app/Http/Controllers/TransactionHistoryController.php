@@ -83,11 +83,11 @@ class TransactionHistoryController extends Controller
     public function bulkDelete(Request $request)
     {
         try {
-            // Only admin and super admin can perform this action
-            if (!auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin()) {
+            // Deleting sales records is limited to the super admin (prevents hiding sales)
+            if (!auth()->user()->isSuperAdmin()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Access denied. Only administrators can perform this action.'
+                    'message' => 'Hanya Super Admin yang dapat menghapus transaksi.'
                 ], 403);
             }
 
@@ -152,11 +152,11 @@ class TransactionHistoryController extends Controller
     public function deleteAllInDatabase(Request $request)
     {
         try {
-            // Only admin and super admin can perform this action
-            if (!auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin()) {
+            // Deleting sales records is limited to the super admin (prevents hiding sales)
+            if (!auth()->user()->isSuperAdmin()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Access denied. Only administrators can perform this action.'
+                    'message' => 'Hanya Super Admin yang dapat menghapus transaksi.'
                 ], 403);
             }
 

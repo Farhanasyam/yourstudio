@@ -24,6 +24,9 @@ class Transaction extends Model
         'payment_method',
         'status',
         'notes',
+        'client_uuid',
+        'is_offline',
+        'needs_review',
     ];
 
     /**
@@ -46,6 +49,8 @@ class Transaction extends Model
         'total_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'change_amount' => 'decimal:2',
+        'is_offline' => 'boolean',
+        'needs_review' => 'boolean',
     ];
 
     /**

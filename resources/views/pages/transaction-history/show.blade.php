@@ -45,7 +45,9 @@
                                         <p class="text-sm font-weight-bold mb-1">Kode Transaksi:</p>
                                     </div>
                                     <div class="col-8">
-                                        <p class="text-sm mb-1">{{ $transaction->transaction_code }}</p>
+                                        <p class="text-sm mb-1">{{ $transaction->transaction_code }}
+                                            @if($transaction->is_offline)<span class="badge badge-sm bg-gradient-secondary ms-1">Offline</span>@endif
+                                            @if($transaction->needs_review)<span class="badge badge-sm bg-gradient-danger ms-1">Perlu dicek</span>@endif</p>
                                     </div>
                                 </div>
                                 <div class="row">
@@ -93,7 +95,7 @@
                                         <p class="text-sm font-weight-bold mb-1">Catatan:</p>
                                     </div>
                                     <div class="col-8">
-                                        <p class="text-sm mb-1">{{ $transaction->notes }}</p>
+                                        <p class="text-sm mb-1 {{ $transaction->needs_review ? 'text-danger' : '' }}">{!! nl2br(e($transaction->notes)) !!}</p>
                                     </div>
                                 </div>
                                 @endif

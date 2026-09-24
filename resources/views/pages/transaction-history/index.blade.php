@@ -214,6 +214,8 @@
                                             <div class="d-flex px-2 py-1">
                                                 <div class="d-flex flex-column justify-content-center">
                                                     <h6 class="mb-0 text-sm">{{ $transaction->transaction_code }}</h6>
+                                                    @if($transaction->is_offline)<span class="badge badge-sm bg-gradient-secondary mt-1">Offline</span>@endif
+                                                    @if($transaction->needs_review)<span class="badge badge-sm bg-gradient-danger mt-1">Perlu dicek</span>@endif
                                                     @if($transaction->notes)
                                                     <p class="text-xs text-secondary mb-0">{{ Str::limit($transaction->notes, 30) }}</p>
                                                     @endif
@@ -269,7 +271,7 @@
                                                 <i class="fas fa-print"></i>
                                             </a>
                                             
-                                            @if(auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
+                                            @if(auth()->user()->isSuperAdmin())
                                             <button type="button" class="btn btn-sm btn-outline-danger delete-transaction" data-transaction-id="{{ $transaction->id }}" data-transaction-code="{{ $transaction->transaction_code }}" data-bs-toggle="tooltip" title="Hapus Transaksi">
                                                 <i class="fas fa-trash"></i>
                                             </button>

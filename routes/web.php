@@ -152,6 +152,7 @@ Route::group(['middleware' => ['auth', 'approved', 'prevent.back']], function ()
 	// Kasir Routes
 	Route::get('/kasir', [KasirController::class, 'index'])->name('kasir.index');
 	Route::post('/kasir/search-barcode', [KasirController::class, 'searchByBarcode'])->name('kasir.search-barcode');
+	Route::get('/kasir/catalog', [KasirController::class, 'catalog'])->name('kasir.catalog');
 	Route::post('/kasir/transaction', [KasirController::class, 'store'])->name('kasir.store');
 	Route::get('/kasir/receipt/{transaction}', [KasirController::class, 'receipt'])->name('kasir.receipt');
 	

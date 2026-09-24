@@ -10,6 +10,9 @@
         YourStudio
     </title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth
+    <meta name="user-id" content="{{ auth()->id() }}">
+    @endauth
     <!--     Fonts and icons     -->
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
     <!-- Nucleo Icons -->
@@ -131,6 +134,10 @@
     <script src="/assets/js/sweet-alert-delete.js"></script>
     <script src="/assets/js/swal-helpers.js"></script>
     <script src="/assets/js/responsive-tables.js"></script>
+    @auth
+    {{-- Offline cashier queue: syncs pending sales from any page --}}
+    <script src="/assets/js/kasir-offline.js"></script>
+    @endauth
 
     @stack('scripts')
     {{-- Several pages (sales charts, report form, transaction edit, user filters) push to "js" --}}
